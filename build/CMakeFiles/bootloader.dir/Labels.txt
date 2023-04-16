@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+/Users/aghyaddeeb/esp/translation/build/CMakeFiles/bootloader
+/Users/aghyaddeeb/esp/translation/build/CMakeFiles/bootloader.rule
+/Users/aghyaddeeb/esp/translation/build/CMakeFiles/bootloader-complete.rule
+/Users/aghyaddeeb/esp/translation/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+/Users/aghyaddeeb/esp/translation/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/Users/aghyaddeeb/esp/translation/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/Users/aghyaddeeb/esp/translation/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/Users/aghyaddeeb/esp/translation/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/Users/aghyaddeeb/esp/translation/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/Users/aghyaddeeb/esp/translation/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule
