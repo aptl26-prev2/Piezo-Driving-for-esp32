@@ -69,6 +69,5 @@
 /Users/aghyaddeeb/esp/translation/build/esp-idf/spiffs/libspiffs.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/ulp/libulp.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/wifi_provisioning/libwifi_provisioning.a
-/Users/aghyaddeeb/esp/translation/build/esp-idf/main/libmain.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/arduino/libarduino.a
-/Users/aghyaddeeb/esp/translation/build/esp-idf/SPI/libSPI.a
+/Users/aghyaddeeb/esp/translation/build/esp-idf/main/libmain.a

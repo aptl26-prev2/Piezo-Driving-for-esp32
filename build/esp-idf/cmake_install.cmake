@@ -121,9 +121,8 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("/Users/aghyaddeeb/esp/translation/build/esp-idf/tinyusb/cmake_install.cmake")
   include("/Users/aghyaddeeb/esp/translation/build/esp-idf/ulp/cmake_install.cmake")
   include("/Users/aghyaddeeb/esp/translation/build/esp-idf/wifi_provisioning/cmake_install.cmake")
-  include("/Users/aghyaddeeb/esp/translation/build/esp-idf/main/cmake_install.cmake")
   include("/Users/aghyaddeeb/esp/translation/build/esp-idf/arduino/cmake_install.cmake")
-  include("/Users/aghyaddeeb/esp/translation/build/esp-idf/SPI/cmake_install.cmake")
+  include("/Users/aghyaddeeb/esp/translation/build/esp-idf/main/cmake_install.cmake")
 
 endif()
 

@@ -33,7 +33,14 @@
 #include "timeEx.h"
 #include "../components/arduino/tools/sdk/esp32c3/include/driver/include/driver/gpio.h"
 #include "../components/arduino/libraries/spi/src/SPI.h"
-#include "esp32-hal-timer.h"
+// #include "esp32-hal-timer.h"
+#include "esp_log.h"
+#include "esp_check.h"
+#include "esp_err.h"
+#include "esp_timer.h"
+// #include "../components/esp_timer/include/esp_timer.h"
+// #include "../components/esp_timer/include/esp_timer.h"
+
 
 /* USER CODE END Includes */
 
@@ -67,11 +74,12 @@ SPIClass * hspi1 = NULL;
 SPIClass * hspi4 = NULL;
 
 // declare a pointer to a hw_timer_t structure
-hw_timer_t * htim2;
+// hw_timer_t * htim2;
+esp_timer_handle_t htim2;
 
 // hw_timer_t * timer = NULL;
 
-#define CS_PIN1 GPIO_NUM_5
+#define CS_PIN1 GPIO_NUM_16
 #define CS_PIN2 GPIO_NUM_16
 
 #define ALTERNATE_PINS
@@ -85,7 +93,7 @@ hw_timer_t * htim2;
   #define HSPI_MISO   19
   #define HSPI_MOSI   23
   #define HSPI_SCLK   18
-  #define HSPI_SS     5
+  #define HSPI_SS     16
 #else
   #define VSPI_MISO   MISO
   #define VSPI_MOSI   MOSI
@@ -101,11 +109,12 @@ hw_timer_t * htim2;
 /********************************************************
 *					    VARIABLES
 ********************************************************/
-volatile uint32_t timer2DefaultPeriod = 0;
-volatile uint32_t timer2NewPeriod = 0;
+volatile uint64_t timer2DefaultPeriod = 0;
+volatile uint64_t timerCurrPeriod = 0;
+volatile uint64_t timer2NewPeriod = 0;
 
 
-void HAL_TIM_PeriodElapsedCallback();
+void HAL_TIM_PeriodElapsedCallback(void* arg);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -247,8 +256,9 @@ static void MX_SPI1_Init(void)
 
 
   //!Arduino Code
-  static const int spiClk = 4000000;
-  gpio_set_level(CS_PIN1, 1);
+  // static const int spiClk = 12000000;
+  // gpio_set_level(CS_PIN1, 1);
+  // pinMode(HSPI_SS, OUTPUT);
   hspi1 = new SPIClass(HSPI);
   hspi1->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_SS);
 
@@ -294,8 +304,8 @@ static void MX_SPI4_Init(void)
   /* USER CODE END SPI4_Init 2 */
 
   //!Arduino Code
-  static const int spiClk = 4000000;
-  gpio_set_level(CS_PIN2, 1);
+  // static const int spiClk = 12000000;
+  // gpio_set_level(CS_PIN2, 1);
   hspi4 = new SPIClass(VSPI);
   hspi4->begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI, VSPI_SS);
 
@@ -356,23 +366,43 @@ static void MX_TIM2_Init(void)
 
   // !ESP code
 
-  // initialize timer 2 with a prescaler of 80 and a count up mode
-  htim2 = timerBegin(2, 96, true);
+  // * I think that the correct timer frequency is 1 MHz
 
-  // set the period or alarm value of timer 2 to 1000
-  timerAlarmWrite(htim2, 1000, true);
+  // // initialize timer 2 with a prescaler of 80 and a count up mode
+  // htim2 = timerBegin(2, 80, true);
 
-  // enable auto-reload mode for timer 2
-  timerSetAutoReload(htim2, true);
+  // // set the period or alarm value of timer 2 to 1000
+  // timerAlarmWrite(htim2, 500, true);
 
-  // attach an interrupt handler function to timer 2
-  timerAttachInterrupt(htim2, &HAL_TIM_PeriodElapsedCallback, true);
+  // // enable auto-reload mode for timer 2
+  // timerSetAutoReload(htim2, true);
 
-   // enable the alarm event or interrupt for timer 2
-  timerAlarmEnable(htim2);
-  // vTaskDelay(1000 / portTICK_PERIOD_MS);
+  // // attach an interrupt handler function to timer 2
+  // timerAttachInterrupt(htim2, &HAL_TIM_PeriodElapsedCallback, true);
 
-  timer2DefaultPeriod = timerAlarmRead(htim2); // read the current period value
+  //  // enable the alarm event or interrupt for timer 2
+  // timerAlarmEnable(htim2);
+  // // vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+  // timer2DefaultPeriod = timerAlarmRead(htim2); // read the current period value
+  // timer2NewPeriod = timer2DefaultPeriod; // initialize the new period value
+
+
+  // ! High precision timer
+  esp_timer_handle_t htim2;
+  const esp_timer_create_args_t periodic_timer_args = {
+        .callback = &HAL_TIM_PeriodElapsedCallback,
+        .name = "periodic"
+    };
+  esp_timer_create(&periodic_timer_args, &htim2);
+  esp_timer_start_periodic(htim2, 125);
+  // esp_timer_get_period(htim2, &timer2DefaultPeriod)
+  // uint64_t p = 0;
+  // esp_timer_get_period(htim2, &p);
+  // printf("\n \n Period: %lld \n",p);
+  // timer2DefaultPeriod = esp_timer_get_period(htim2); // read the current period value
+  timer2DefaultPeriod = 125;
+  timerCurrPeriod = timer2DefaultPeriod;
   timer2NewPeriod = timer2DefaultPeriod; // initialize the new period value
 }
 
@@ -471,16 +501,41 @@ static void MX_TIM2_Init(void)
 // 	}
 // }
 
-void HAL_TIM_PeriodElapsedCallback() {
+// void HAL_TIM_PeriodElapsedCallback() {
+//   // check if the interrupt source is timer 2
+//   // if (htim2 == htim2) {
+//   // printf("timer done\n");
+//   timeSetTimerFlag(); // set a flag for some purpose
+//   // check if the period change is requested
+//   if (timerAlarmReadMicros(htim2) != timer2NewPeriod) {
+//     // set the new period or alarm value for timer 2
+//     timerAlarmWrite(htim2, timer2NewPeriod, true);
+//     timeSetUsIncrement(timer2NewPeriod + 1); // set some increment value based on the new period
+//   }
+//   // }
+// }
+
+void HAL_TIM_PeriodElapsedCallback(void * arg) {
   // check if the interrupt source is timer 2
   // if (htim2 == htim2) {
+  // printf("timer done\n");
   timeSetTimerFlag(); // set a flag for some purpose
-  // check if the period change is requested
-  if (timerAlarmRead(htim2) != timer2NewPeriod) {
-    // set the new period or alarm value for timer 2
-    timerAlarmWrite(htim2, timer2NewPeriod, true);
-    timeSetUsIncrement(timer2NewPeriod + 1); // set some increment value based on the new period
-  }
+  int64_t time_since_boot = esp_timer_get_time();
+  // printf("perdiod done, time since boot: %lld\n\n", time_since_boot);
+  // // check if the period change is requested
+  // // esp_timer_get_period(htim2, &period_store)
+  printf("timer next alarm: %lld \n\n", esp_timer_get_next_alarm());
+  // if (timerCurrPeriod != timer2NewPeriod) {
+  //   // set the new period or alarm value for timer 2
+  //   // esp_timer_restart(htim2, timer2NewPeriod);
+  //   // printf("new period: %lld\n\n ", timer2NewPeriod);
+
+  //   esp_timer_stop(htim2);
+
+  //   esp_timer_start_periodic(htim2, timer2NewPeriod);
+  //   timerCurrPeriod = timer2NewPeriod;
+  //   timeSetUsIncrement(timer2NewPeriod + 1); // set some increment value based on the new period
+  // }
   // }
 }
 
@@ -565,7 +620,7 @@ void app_main(void)
 	// ledExWrite(LEDEX_D1, color_green);
 
 	// run example code
-	example();
+	// example();
 
   // #define VSPI_MISO   MISO
   // #define VSPI_MOSI   MOSI
@@ -577,8 +632,9 @@ void app_main(void)
   // printf("\n\n\nMISO: %d", MISO);
   // printf("\n\n\nSCK: %d", SCK); 
   // printf("\n\n\nSCK: %d", SCK); 
-
-  // spiReadWriteReg(0, 0xc000);
+  // for(;;) {
+  //   spiReadWriteReg(0, 0xc000);
+  // }
   // spiReadWriteReg(0, 0xc000);
   // spiReadWriteReg(0, 0xc000);
   // spiReadWriteReg(0, 0x5121);

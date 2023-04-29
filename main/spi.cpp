@@ -33,7 +33,7 @@
 // board channel B
 // #define SS1_PORT (GPIOE)
 // #define SS1_PIN  (SS1_Pin)
-#define CS_PIN1 GPIO_NUM_5
+#define CS_PIN1 GPIO_NUM_16
 #define CS_PIN2 GPIO_NUM_16
 
 /********************************************************
@@ -62,28 +62,33 @@ uint16_t spiReadWriteReg(uint8_t chipSelect, uint16_t data)
 	uint16_t DataSend = data;
 	uint16_t DataReceive = 0;
 
-	switch(chipSelect)
-	{
-		case 0:
-			spiHandle = hspi1;
-			// gpioPort = SS0_PORT;
-			gpioPin = CS_PIN1;
-			break;
-		case 1:
-			spiHandle = hspi4;
-			// gpioPort = SS1_PORT;
-			gpioPin = CS_PIN2;
-			break;
-		default:
-			spiHandle = hspi1;
-			// gpioPort = SS0_PORT;
-			gpioPin = CS_PIN1;
-	}
+	spiHandle = hspi1;
+
+	gpioPin = CS_PIN1;
+	// switch(chipSelect)
+	// {
+	// 	case 0:
+	// 		spiHandle = hspi1;
+	// 		// gpioPort = SS0_PORT;
+	// 		gpioPin = CS_PIN1;
+	// 		break;
+	// 	case 1:
+	// 		spiHandle = hspi4;
+	// 		// gpioPort = SS1_PORT;
+	// 		gpioPin = CS_PIN2;
+	// 		break;
+	// 	default:
+	// 		spiHandle = hspi1;
+	// 		// gpioPort = SS0_PORT;
+	// 		gpioPin = CS_PIN1;
+	// }
 
 	// HAL_GPIO_WritePin(gpioPort, gpioPin, 0);
 	// HAL_SPI_TransmitReceive(spiHandle, (uint8_t*)&DataSend, (uint8_t*)&DataReceive, 1, 100);
 	// HAL_GPIO_WritePin(gpioPort, gpioPin, 1);
-	static const int spiClk = 4000000;
+	// static const int spiClk = 12000000;
+	static const int spiClk = 750000;
+	// static const int spiClk = 1000000;
 	spiHandle->beginTransaction(SPISettings(spiClk, SPI_MSBFIRST, SPI_MODE0));
 	gpio_set_level(gpioPin, 0);
 	DataReceive = spiHandle->transfer16(DataSend);
@@ -91,9 +96,9 @@ uint16_t spiReadWriteReg(uint8_t chipSelect, uint16_t data)
 	spiHandle->endTransaction();
 
 	printf("DataSend: ");
-	printf("%x", DataSend);
-	printf(",  Channel: ");
-	printf("%x\n", chipSelect);
+	printf("%x\n", DataSend);
+	// printf(",  Channel: ");
+	// printf("%x\n", chipSelect);
 	printf("DataReceive: ");
 	printf("%x\n", DataReceive);
 	
