@@ -107,10 +107,11 @@ void Error_Handler(void);
 // This example contains the latest improvements to sensing and stabilizing the piezo actuator.
 // It is the go-to example for the best button experience.
 // #define EXAMPLE_SENSING
-#define EXAMPLE_DRIVING
+#define EXAMPLE_ADVSENSING
+// #define EXAMPLE_DRIVING
+// #define DRIVING_TEST 
 
 /* USER CODE END Private defines */
-
 #ifdef __cplusplus
 }
 #endif

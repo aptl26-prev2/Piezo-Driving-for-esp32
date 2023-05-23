@@ -308,7 +308,7 @@ static void drivingTrimming(void) {
 					FifoSpacePrev = FifoSpace;
 				}
 				nbTry++;
-				// printf("\n\nnbTry: %d\n\n", nbTry);          
+				printf("\n\nnbTry: %d\n\n", nbTry);          
 				//If FIFO has less space than before, data is accumulating in the FIFO
                 if ((FifoSpace < FifoSpacePrev && !FifoEmpty) || FifoFull)
                 {	
@@ -566,8 +566,15 @@ void example(void)
     // Infinite loop
     for(;;) 
     {
-        drivingExecuteSensing();
-        vTaskDelay(1);
+        // drivingExecuteSensing();
+        // vTaskDelay(1);
+        if(bos1901[0].counter < press_waveform_size) // playing the waveform
+        {
+            spiReadWriteReg(0,press_waveform[bos1901[0].counter++]);// Timer expired: send a new point
+        } 
+        else {
+            bos1901[0].counter = 0;
+        }
     }
 }
 

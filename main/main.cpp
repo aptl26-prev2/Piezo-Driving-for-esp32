@@ -27,6 +27,7 @@
 
 #include "example.h"
 
+#include "driver/spi_master.h"
 #include "spi.h"
 #include "ledEx.h"
 #include "gpioEx.h"
@@ -38,6 +39,7 @@
 #include "esp_check.h"
 #include "esp_err.h"
 #include "esp_timer.h"
+#include "math.h"
 // #include "../components/esp_timer/include/esp_timer.h"
 // #include "../components/esp_timer/include/esp_timer.h"
 
@@ -79,8 +81,17 @@ esp_timer_handle_t htim2;
 
 // hw_timer_t * timer = NULL;
 
-#define CS_PIN1 GPIO_NUM_16
+#define CS_PIN1 GPIO_NUM_4
 #define CS_PIN2 GPIO_NUM_16
+
+#define SPI_HOST    HSPI_HOST //Define the SPI host to be HSPI
+#define DMA_CHAN    2 //Define the DMA channel to be 2
+
+// #define PIN_NUM_MOSI 23 //Define the GPIO number for MOSI pin
+// #define PIN_NUM_MISO 19 //Define the GPIO number for MISO pin
+// #define PIN_NUM_CLK  18 //Define the GPIO number for SCLK pin
+// #define PIN_NUM_CS0  16 //Define the GPIO number for CS0 pin
+// #define PIN_NUM_CS1   6 //Define the GPIO number for CS1 pin
 
 #define ALTERNATE_PINS
 
@@ -90,10 +101,10 @@ esp_timer_handle_t htim2;
   #define VSPI_SCLK   0
   #define VSPI_SS     33
 
-  #define HSPI_MISO   19
-  #define HSPI_MOSI   23
-  #define HSPI_SCLK   18
-  #define HSPI_SS     16
+  #define HSPI_MISO   13
+  #define HSPI_MOSI   12
+  #define HSPI_SCLK   14
+  #define HSPI_SS     4
 #else
   #define VSPI_MISO   MISO
   #define VSPI_MOSI   MOSI
@@ -106,6 +117,20 @@ esp_timer_handle_t htim2;
   #define HSPI_SS     15
 #endif
 
+
+//* Experiments for driving
+#define MAX_FIFO_SPACE		(64)
+#define REFERENCE_PLUS_1LSB					(0x0001)
+#define REFERENCE_MINUS_1LSB				(0x0FFF)
+#define SUP_RISE_SENSE_BIT_ON  (0x1 << 11)
+#define SENSING_RELEASE_DETECT_VAL	    (REFERENCE_MINUS_1LSB) // REFERENCE CODE
+#define PIEZO_RELAXATION_TIME_SENSING_SETUP_MS  (20) 
+
+uint16_t index_b;
+
+spi_device_handle_t spi0;
+
+
 /********************************************************
 *					    VARIABLES
 ********************************************************/
@@ -115,6 +140,8 @@ volatile uint64_t timer2NewPeriod = 0;
 
 
 void HAL_TIM_PeriodElapsedCallback(void* arg);
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -256,12 +283,38 @@ static void MX_SPI1_Init(void)
 
 
   //!Arduino Code
-  // static const int spiClk = 12000000;
-  // gpio_set_level(CS_PIN1, 1);
-  // pinMode(HSPI_SS, OUTPUT);
-  hspi1 = new SPIClass(HSPI);
-  hspi1->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_SS);
+  
+  // gpio_set_level(CS_PIN1, 1); 
+  // // pinMode(HSPI_SS, OUTPUT);
+  // hspi1 = new SPIClass(HSPI);
+  // hspi1->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_SS);
 
+
+  //!New spi library
+  static const int spiClk = 12*1000*1000;
+  // static const int spiClk = 20*1000*1000;
+  spi_bus_config_t buscfg={
+    .mosi_io_num=HSPI_MOSI, //Set the MOSI pin number
+    .miso_io_num=HSPI_MISO, //Set the MISO pin number
+    .sclk_io_num=HSPI_SCLK, //Set the SCLK pin number
+    .quadwp_io_num=-1, //Set the QUADWP pin number to -1 (not used)
+    .quadhd_io_num=-1, //Set the QUADHD pin number to -1 (not used)
+    .max_transfer_sz=0 //Set the maximum transfer size in bytes
+  };
+
+  spi_device_interface_config_t devcfg0={
+    .mode=0,                                //Set the SPI mode to 0
+    .clock_speed_hz= spiClk,           //Set the clock speed to 10 MHz
+    .spics_io_num=CS_PIN1,              //Set the CS pin number for chip select 0
+    .queue_size=7,                          //Set the queue size to 7
+  };
+
+  // spi_device_handle_t spi0;
+  //Initialize the SPI devices
+  esp_err_t ret=spi_bus_initialize(SPI_HOST, &buscfg, DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
+  assert(ret==ESP_OK); //Check if the initialization was successful
+  ret=spi_bus_add_device(SPI_HOST, &devcfg0, &spi0); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  assert(ret==ESP_OK); //Check if adding device was successful
 
   
 
@@ -306,8 +359,8 @@ static void MX_SPI4_Init(void)
   //!Arduino Code
   // static const int spiClk = 12000000;
   // gpio_set_level(CS_PIN2, 1);
-  hspi4 = new SPIClass(VSPI);
-  hspi4->begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI, VSPI_SS);
+  // hspi4 = new SPIClass(VSPI);
+  // hspi4->begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI, VSPI_SS);
 
 }
 
@@ -395,15 +448,26 @@ static void MX_TIM2_Init(void)
         .name = "periodic"
     };
   esp_timer_create(&periodic_timer_args, &htim2);
-  esp_timer_start_periodic(htim2, 125);
+  timer2DefaultPeriod = 125;
+  #ifdef EXAMPLE_ADVSENSING
+  // set period to 1ms for this example
+      timer2DefaultPeriod = ADVSENSING_SAMPLING_PERIOD;
+  #endif
+  #ifdef DRIVING_TEST
+  // set period to 1ms for this example
+      timer2DefaultPeriod = ADVSENSING_SAMPLING_PERIOD;
+  #endif
+  // timer2DefaultPeriod = 124;
+  esp_timer_start_periodic(htim2, timer2DefaultPeriod);
   // esp_timer_get_period(htim2, &timer2DefaultPeriod)
   // uint64_t p = 0;
   // esp_timer_get_period(htim2, &p);
   // printf("\n \n Period: %lld \n",p);
   // timer2DefaultPeriod = esp_timer_get_period(htim2); // read the current period value
-  timer2DefaultPeriod = 125;
   timerCurrPeriod = timer2DefaultPeriod;
   timer2NewPeriod = timer2DefaultPeriod; // initialize the new period value
+  timeSetUsIncrement(timer2DefaultPeriod);
+  // timeSetUsIncrement(16);
 }
 
 // /**
@@ -524,18 +588,21 @@ void HAL_TIM_PeriodElapsedCallback(void * arg) {
   // printf("perdiod done, time since boot: %lld\n\n", time_since_boot);
   // // check if the period change is requested
   // // esp_timer_get_period(htim2, &period_store)
-  printf("timer next alarm: %lld \n\n", esp_timer_get_next_alarm());
-  // if (timerCurrPeriod != timer2NewPeriod) {
-  //   // set the new period or alarm value for timer 2
-  //   // esp_timer_restart(htim2, timer2NewPeriod);
-  //   // printf("new period: %lld\n\n ", timer2NewPeriod);
+  // printf("timer next alarm: %lld \n\n", esp_timer_get_next_alarm());
+  // printf("old period: %lld\n\n ", timer2NewPeriod);
+  // printf("new period: %lld\n\n ", timerCurrPeriod);
+  if (timerCurrPeriod != timer2NewPeriod) {
+    printf("\n\n\nperiod changed\n\n\n");
+    // set the new period or alarm value for timer 2
+    // esp_timer_restart(htim2, timer2NewPeriod);
+    // printf("new period: %lld\n\n ", timer2NewPeriod);
 
-  //   esp_timer_stop(htim2);
+    esp_timer_stop(htim2);
 
-  //   esp_timer_start_periodic(htim2, timer2NewPeriod);
-  //   timerCurrPeriod = timer2NewPeriod;
-  //   timeSetUsIncrement(timer2NewPeriod + 1); // set some increment value based on the new period
-  // }
+    esp_timer_start_periodic(htim2, timer2NewPeriod);
+    timerCurrPeriod = timer2NewPeriod;
+    timeSetUsIncrement(timer2NewPeriod); // set some increment value based on the new period
+  }
   // }
 }
 
@@ -576,6 +643,164 @@ void assert_failed(uint8_t *file, uint32_t line)
   * @brief  The application entry point.
   * @retval int
   */
+
+
+
+ //* Experiments for driving
+static int16_t advSensingVolt2Amplitude(float volt)
+{
+    int16_t amplitude = volt*2047/3.6/31;
+
+    return amplitude & 0x0FFF;
+}
+static uint8_t advSensingGetFifoSpace(uint8_t channel)
+{
+    uint8_t fifospace = 0;
+    uint16_t wReg = 0;
+
+    //Set up broadcast to read IC_STATUS
+    wReg = 0x5617;
+    spiReadWriteReg(channel, wReg);  // Set BC = IC_STATUS
+	timeWaitUs(10);
+	wReg = 0xC000;
+	uint16_t ic_status_reg = spiReadWriteReg(channel, wReg); // dummy write, get IC_STATUS value
+	fifospace = ic_status_reg & 0x7F; // extract EMPTY & FIFO_SPACE value.
+
+    return fifospace;
+}
+static void advSensingWaitFifoEmpty(uint8_t channel)
+{
+    bool fifoempty = 0;
+    uint16_t wReg = 0;
+
+    //Set up broadcast to read IC_STATUS
+    wReg = 0x5617;
+    spiReadWriteReg(channel, wReg);  // Set BC = IC_STATUS
+
+    // loop until FIFO is empty
+    while(!fifoempty)
+    {
+        timeWaitUs(10);
+        wReg = 0xC000;
+        uint16_t ic_status_reg = spiReadWriteReg(channel, wReg); // dummy write, get IC_STATUS value
+        fifoempty = (ic_status_reg >> 6) & 0x1; // extract EMPTY value.
+    }
+}
+
+static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float vMax, float vMin, uint16_t freq, uint8_t cycles)
+{
+    float amplitude = (vMax - vMin)/2;
+    float offset = (vMax + vMin)/2;
+    uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
+    uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
+    double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
+    float phaseShift;
+    uint16_t endVal;
+    
+    // calculate phase
+    if (vMin >= 0)
+    {
+        phaseShift = -M_PI;
+        endVal = REFERENCE_MINUS_1LSB;
+    }
+    else if (vMax <= 0)
+    {
+        phaseShift = 0;
+        endVal = REFERENCE_PLUS_1LSB;
+    }
+    else
+    {
+        phaseShift = -M_PI - acosf(fabsf(offset) / amplitude);
+        endVal = fabsf(vMax) > fabsf(vMin) ? REFERENCE_MINUS_1LSB : REFERENCE_PLUS_1LSB;
+    }
+
+    *size = nbrOfSamplePerCycle * cycles;
+    for(uint16_t i = 0; i < *size; i++)
+    {
+        table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+    }
+    // ending value
+    (*size)++;
+    table[(*size)-1] = endVal;
+}
+
+static bool advSensingPlayWaveformNonBlocking(uint8_t channel, uint16_t* waveform, uint16_t size)
+{
+	bool res = false;
+
+	// first entry
+	if(index_b == 0)
+	{
+	    advSensingWaitFifoEmpty(channel); // wait until BOS1901 internal FIFO is empty before sending the waveform to make sure we can write 64 points.
+	    spiReadWriteReg(channel, 0x77E7);  // set SENSE = 0 to drive the output
+	}
+
+    // fill FIFO with table values, wait if more than 64 points sent
+	uint16_t fifospace = advSensingGetFifoSpace(channel);
+
+    // waveform all programmed
+    if(index_b == size)
+    {
+    	// waveform finished playing
+    	if(fifospace == MAX_FIFO_SPACE)
+    	{
+            index_b = 0;
+            res = true;
+    	}
+    }
+    else
+    {
+    	uint16_t sendSize = fifospace <= (size - index_b) ? fifospace : (size - index_b);
+
+    	for(int8_t i = 0; i < sendSize; i++)
+    	{
+        	spiReadWriteReg(channel, waveform[index_b]);
+        	index_b++;
+    	}
+    }
+
+    return res;
+}
+
+void driving_test(void) {
+  //  software reset
+     spiReadWriteReg(0, 0x5427);
+
+    uint16_t press_waveform[1024];
+    uint16_t press_waveform_size;
+    uint16_t press_stab_waveform[1024];   // Press stabilization waveform data points
+  	uint16_t press_stab_waveform_size;         
+    uint16_t relaxTimeStartUs = 0 ;
+    advSensingCalculateWaveform(press_waveform, &press_waveform_size, 90, -10, 500, 10);
+    advSensingCalculateWaveform(press_stab_waveform, &press_stab_waveform_size, 0, -5, 500, 1);
+    advSensingPlayWaveformNonBlocking(0, press_waveform, press_waveform_size);
+    if(relaxTimeStartUs == 0)
+    {
+      // waveform done
+      if(advSensingPlayWaveformNonBlocking(0, press_stab_waveform, press_stab_waveform_size))
+      {
+          // disable then enable output (avoid zero-crossing potential issue)
+          spiReadWriteReg(0, 0x5687); // disable output
+          spiReadWriteReg(0, 0x77E7 | SUP_RISE_SENSE_BIT_ON); // SENSE = 1,VDD = 11111,TI_RISE = 0x27
+          spiReadWriteReg(0, SENSING_RELEASE_DETECT_VAL);  // write 0x0001 to set the bridge to positive polarity
+          spiReadWriteReg(0, 0x5697); // enable output
+
+          relaxTimeStartUs = timeGetUsCounter();
+      }
+    }
+    // wait relaxation time
+    else
+    {
+      if(timeGetUsCounter() > relaxTimeStartUs + PIEZO_RELAXATION_TIME_SENSING_SETUP_MS*1000)
+      {
+        relaxTimeStartUs = 0;
+        // advSensingNextState(channel); // to go next phase
+      }
+    }
+  
+}
+
+
 void app_main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -620,7 +845,7 @@ void app_main(void)
 	// ledExWrite(LEDEX_D1, color_green);
 
 	// run example code
-	// example();
+	example();
 
   // #define VSPI_MISO   MISO
   // #define VSPI_MOSI   MOSI
@@ -645,4 +870,8 @@ void app_main(void)
     /* USER CODE BEGIN 3 */
 
   /* USER CODE END 3 */
+
+  //* Experimenting with driving:
+  // driving_test();
+ 
 }

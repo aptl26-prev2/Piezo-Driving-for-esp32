@@ -46,7 +46,8 @@
 //Channels
 #define BOS1901_CHANNEL_A   (0)
 #define BOS1901_CHANNEL_B   (1)
-#define NB_CHANNELS (2)
+// #define NB_CHANNELS (2)
+#define NB_CHANNELS (1)
 
 // Application
 #define SENSING_SAMPLING_RATE		(ADVSENSING_SAMPLING_PERIOD)
@@ -59,7 +60,7 @@
 // Press feedback waveform
 #define PRESS_SIG_VOLTAGE_MAX       (90.0f) // V (bipolar amplitude)
 #define PRESS_SIG_VOLTAGE_MIN       (-10.0f) // V (bipolar amplitude)
-#define PRESS_SIG_FREQ              (175) // Hz
+#define PRESS_SIG_FREQ              (300) // Hz
 #define PRESS_SIG_CYCLE             (1) // warning : SIG_SIZE_MAX might need to be increased
 
 // Release feedback waveform
@@ -81,7 +82,8 @@
 // Press sensing parameters : detection successful if : (value1 AND slode) OR value2
 //// value1 : value threshold detection
 #define PRESS_DETECTION_VALUE1_ENABLED 		(true)
-#define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.8f) // V
+// #define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.8f) // V
+#define PRESS_DETECTION_VALUE1_THRESHOLD 	(1.0f) // V
 #define PRESS_DETECTION_VALUE1_HOLDTIME_US 	(0) // us
 #define PRESS_DETECTION_VALUE1_HOLDTIME 	(PRESS_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
@@ -105,13 +107,14 @@
 #define RELEASE_DETECTION_VALUE1_HOLDTIME 	(RELEASE_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
 #define RELEASE_DETECTION_SLOPE_ENABLED 	(true)
+// #define RELEASE_DETECTION_SLOPE_THRESHOLD 	(3000) // uV/ms
 #define RELEASE_DETECTION_SLOPE_THRESHOLD 	(3000) // uV/ms
-#define RELEASE_DETECTION_SLOPE_HOLDTIME_US (4000) // us
+#define RELEASE_DETECTION_SLOPE_HOLDTIME_US (8000) // us
 #define RELEASE_DETECTION_SLOPE_HOLDTIME    (RELEASE_DETECTION_SLOPE_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 #define RELEASE_DETECTION_SLOPE_MAX_WINDOW_US (DATA_HANDLER_SLOPE_MAX_WINDOW_US) // us, window time
 #define RELEASE_DETECTION_SLOPE_WINDOW_SIZE (RELEASE_DETECTION_SLOPE_MAX_WINDOW_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// value2 : value threshold detection
-#define RELEASE_DETECTION_VALUE2_ENABLED 	(false)
+#define RELEASE_DETECTION_VALUE2_ENABLED 	(true)
 #define RELEASE_DETECTION_VALUE2_THRESHOLD 	(0.109f*1.5)
 #define RELEASE_DETECTION_VALUE2_HOLDTIME_US 	(125) // us
 #define RELEASE_DETECTION_VALUE2_HOLDTIME 	(RELEASE_DETECTION_VALUE2_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
@@ -119,6 +122,7 @@
 // Piezo actuator specifics
 #define PIEZO_RELAXATION_TIME_INIT_MS       (600) // ms, time between first enabling the output and measuring the OFFSET
 #define PIEZO_RELAXATION_TIME_SENSING_SETUP_MS  (20) // ms, time between enabling sensing and starting to capture VFEEDBACK
+// #define PIEZO_RELAXATION_TIME_SENSING_SETUP_MS  (1000) // ms, time between enabling sensing and starting to capture VFEEDBACK
 
 // Useful values
 #define REFERENCE_PLUS_1LSB					(0x0001)
@@ -230,6 +234,21 @@ typedef struct {
 ********************************************************/
 
 // bos1901 initialization values
+// static Bos1901 bos1901[NB_CHANNELS] = {
+// 	{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHA
+// 	},{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHB
+// 	}
+// };
 static Bos1901 bos1901[NB_CHANNELS] = {
 	{
 		.state = SensingState_A_init,
@@ -237,12 +256,6 @@ static Bos1901 bos1901[NB_CHANNELS] = {
 		.release_waveform_size = 0,
 		.relaxTimeStartUs = 0,
 		.led = LEDEX_CHA
-	},{
-		.state = SensingState_A_init,
-		.press_waveform_size = 0,
-		.release_waveform_size = 0,
-		.relaxTimeStartUs = 0,
-		.led = LEDEX_CHB
 	}
 };
 
@@ -274,7 +287,7 @@ static void advSensingRelease(uint8_t channel);
 static void advSensingReleaseFeedback(uint8_t channel);
 static void advSensingReleaseCreepStabilization(uint8_t channel);
 static void advSensingEnterPhase(uint8_t channel);
-static void advSensingExecuteSensing();
+static void advSensingExexcuteSensing();
 static void advSensingSlopeDetectionReset(SlopeSensingState *ptr);
 static void advSensingValueDetectionReset(ValueSensingState *ptr);
 static void advSensingGetSensingOffset(uint8_t channel);
@@ -378,7 +391,7 @@ static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float v
     double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
     float phaseShift;
     uint16_t endVal;
-
+    
     // calculate phase
     if (vMin >= 0)
     {
@@ -397,10 +410,28 @@ static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float v
     }
 
     *size = nbrOfSamplePerCycle * cycles;
-    for(uint16_t i = 0; i < *size; i++)
-    {
-        table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+    if (vMax != 0) {
+        for(uint16_t i = 0; i < *size; i++)
+            {
+                if (i > 10) {
+                    table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * 1 + (vMax + vMin)/2 );
+                }
+                else {
+                    table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * i * 0.1 + (vMax + vMin)/2 );
+                }
+            // table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+
+            }
     }
+
+    else {
+        for(uint16_t i = 0; i < *size; i++)
+            {
+            table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+            // table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * 1 + (vMax + vMin)/2 );
+            }
+    }
+
     // ending value
     (*size)++;
     table[(*size)-1] = endVal;
@@ -409,9 +440,13 @@ static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float v
 // Calculate Press and Release Feedback Waveforms
 static void advSensingCalculateWaveforms(uint8_t channel)
 {
+    // printf("inside calculating waverforms\n");
     // ******* Press Feedback Waveform : edge-smoothed sine *******
     advSensingCalculateWaveform(bos1901[channel].press_waveform, &bos1901[channel].press_waveform_size, PRESS_SIG_VOLTAGE_MAX, PRESS_SIG_VOLTAGE_MIN, PRESS_SIG_FREQ, PRESS_SIG_CYCLE);
 
+    // for (uint16_t i = 0; i < bos1901[channel].press_waveform_size; i++) {
+    //     printf("%u: %u\n", (unsigned int) i, (unsigned int) bos1901[channel].press_waveform[i]);
+    // }
     // ******* Press Stabilization Waveform : negative sine *******
     advSensingCalculateWaveform(bos1901[channel].press_stab_waveform, &bos1901[channel].press_stab_waveform_size, 0, PRESS_CREEP_STABILISATION_MIN, PRESS_CREEP_STABILISATION_FREQ, 1);
 
@@ -561,7 +596,7 @@ static void advSensingNextState(uint8_t channel)
 // Single entry function - executed once when called
 static void advSensingInit(uint8_t channel)
 {
-    ledExWrite(bos1901[channel].led, color_red); // show error.
+    // ledExWrite(bos1901[channel].led, color_red); // show error.
 
     advSensingBos1901_Register_Init(channel);
     advSensingGetSensingOffset(channel);
@@ -569,7 +604,7 @@ static void advSensingInit(uint8_t channel)
     advSensingCalculateWaveforms(channel);
 
     // LED STATE
-    ledExWrite(bos1901[channel].led, color_black);
+    // ledExWrite(bos1901[channel].led, color_black);
 
     advSensingNextState(channel);          // to go next phase
 }
@@ -601,8 +636,9 @@ static void advSensingPress(uint8_t channel)
 
     if(sensingResult)
     {
+        // printf("\n\n\n\n\n\n\n\nsensing\n\n\n\n\n\n\n");
         // LED STATE
-        ledExWrite(bos1901[channel].led, color_green);
+        // ledExWrite(bos1901[channel].led, color_green);
         advSensingNextState(channel);  // go to next phase
     }
 }
@@ -618,7 +654,8 @@ static void advSensingPressFeedback(uint8_t channel)
 // Phases D - Press Creep Stabilization
 // Single entry function - executed once when called
 static void advSensingPressCreepStabilization(uint8_t channel)
-{
+{ 
+    // printf("\n\n\n\n inside stabilize \n\n\n");
 	// first entry - play waveform
 	if(bos1901[channel].relaxTimeStartUs == 0)
 	{
@@ -649,6 +686,7 @@ static void advSensingPressCreepStabilization(uint8_t channel)
 // Single entry function - executed once when called
 static void advSensingReleaseSetup(uint8_t channel)
 {
+    // printf("\n\n\n\ninside release setup\n\n\n\n");
     advSensingReset(channel);
     spiReadWriteReg(channel, 0x77E7 | SUP_RISE_SENSE_BIT_ON);  // set SENSE = 1
     spiReadWriteReg(channel, 0x5697);  // Set BC = SENSE
@@ -661,6 +699,7 @@ static void advSensingReleaseSetup(uint8_t channel)
 // Multiple entry function - entered every time the timer expires
 static void advSensingRelease(uint8_t channel)
 {
+    // printf("\n\n\n\ninside release sensing\n\n\n\n");
     advSensingGetSensingVoltage(channel);
 
     // evaluate sensing mechanisms
@@ -673,7 +712,7 @@ static void advSensingRelease(uint8_t channel)
     if(sensingResult)
     {
         // LED STATE
-        ledExWrite(bos1901[channel].led, color_black);
+        // ledExWrite(bos1901[channel].led, color_black);
         advSensingNextState(channel);  // go to next phase
     }
 }
@@ -767,7 +806,7 @@ static void advSensingExecuteSensing()
 
         // for each channel
         for(uint8_t i = 0; i < NB_CHANNELS; i++)
-        {
+        {   
             advSensingEnterPhase(i);
         }
     }
@@ -1054,6 +1093,7 @@ void example(void)
     while(1)
     {
         advSensingExecuteSensing();
+        vTaskDelay(1);
     }
 }
 
