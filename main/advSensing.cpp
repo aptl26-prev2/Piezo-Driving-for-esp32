@@ -47,7 +47,7 @@
 #define BOS1901_CHANNEL_A   (0)
 #define BOS1901_CHANNEL_B   (1)
 // #define NB_CHANNELS (2)
-#define NB_CHANNELS (1)
+#define NB_CHANNELS (2)
 
 // Application
 #define SENSING_SAMPLING_RATE		(ADVSENSING_SAMPLING_PERIOD)
@@ -58,8 +58,8 @@
 #define VFEEDBACK_AVERAGE_SAMPLING 	(10) // number of values averaged when capturing VFEEDBACK
 
 // Press feedback waveform
-#define PRESS_SIG_VOLTAGE_MAX       (90.0f) // V (bipolar amplitude)
-#define PRESS_SIG_VOLTAGE_MIN       (-10.0f) // V (bipolar amplitude)
+#define PRESS_SIG_VOLTAGE_MAX       (60.0f) // V (bipolar amplitude)
+#define PRESS_SIG_VOLTAGE_MIN       (0.0f) // V (bipolar amplitude)
 #define PRESS_SIG_FREQ              (300) // Hz
 #define PRESS_SIG_CYCLE             (1) // warning : SIG_SIZE_MAX might need to be increased
 
@@ -82,8 +82,8 @@
 // Press sensing parameters : detection successful if : (value1 AND slode) OR value2
 //// value1 : value threshold detection
 #define PRESS_DETECTION_VALUE1_ENABLED 		(true)
-// #define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.8f) // V
-#define PRESS_DETECTION_VALUE1_THRESHOLD 	(1.0f) // V
+#define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.8f) // V
+// #define PRESS_DETECTION_VALUE1_THRESHOLD 	(1.0f) // V
 #define PRESS_DETECTION_VALUE1_HOLDTIME_US 	(0) // us
 #define PRESS_DETECTION_VALUE1_HOLDTIME 	(PRESS_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
@@ -234,21 +234,6 @@ typedef struct {
 ********************************************************/
 
 // bos1901 initialization values
-// static Bos1901 bos1901[NB_CHANNELS] = {
-// 	{
-// 		.state = SensingState_A_init,
-// 		.press_waveform_size = 0,
-// 		.release_waveform_size = 0,
-// 		.relaxTimeStartUs = 0,
-// 		.led = LEDEX_CHA
-// 	},{
-// 		.state = SensingState_A_init,
-// 		.press_waveform_size = 0,
-// 		.release_waveform_size = 0,
-// 		.relaxTimeStartUs = 0,
-// 		.led = LEDEX_CHB
-// 	}
-// };
 static Bos1901 bos1901[NB_CHANNELS] = {
 	{
 		.state = SensingState_A_init,
@@ -256,8 +241,23 @@ static Bos1901 bos1901[NB_CHANNELS] = {
 		.release_waveform_size = 0,
 		.relaxTimeStartUs = 0,
 		.led = LEDEX_CHA
+	},{
+		.state = SensingState_A_init,
+		.press_waveform_size = 0,
+		.release_waveform_size = 0,
+		.relaxTimeStartUs = 0,
+		.led = LEDEX_CHB
 	}
 };
+// static Bos1901 bos1901[NB_CHANNELS] = {
+// 	{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHA
+// 	}
+// };
 
 /*
  * Private Section

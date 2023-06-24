@@ -53,6 +53,7 @@
 extern SPIClass * hspi1;
 extern SPIClass * hspi4;
 extern spi_device_handle_t spi0;
+extern spi_device_handle_t spi1;
 
 static const int spiClk = 12*1000*1000;
 // spi_device_handle_t spi0;
@@ -60,6 +61,48 @@ static const int spiClk = 12*1000*1000;
 // void spiInit() {
 
 // }
+
+
+uint16_t spiReadWriteReg(uint8_t chipSelect, uint16_t data)
+{
+	spi_device_handle_t spiHandle = spi0; //Declare a handle for the selected SPI device
+gpio_set_level(CS_PIN2, 1); 
+
+	uint16_t DataSend = SPI_SWAP_DATA_TX(data, 16); //Swap and copy the data to be sent to a local variable
+
+	uint16_t DataReceive = 0; //Declare a variable to hold the received data
+
+	esp_err_t ret;
+	switch(chipSelect) //Select which SPI device to use based on chip select parameter
+	{
+		case 0:
+			spiHandle = spi0; //Use chip select 0 device handle
+			break;
+		case 1:
+			spiHandle = spi1; //Use chip select 1 device handle
+			break;
+		default:
+			spiHandle = spi0; //Use chip select 0 device handle by default
+	}
+
+	//Create a transaction structure
+	spi_transaction_t t;
+	memset(&t, 0, sizeof(t));       //Zero out the transaction structure
+	t.length = 16;               //Set the length of the transaction in bits (16 bytes * 8 bits/byte)
+	t.tx_buffer = &DataSend;         //Set the pointer to the data buffer to be sent
+	t.rx_buffer = &DataReceive;      //Set the pointer to the data buffer to be received
+
+	//Transmit and receive the data using polling mode
+	ret = spi_device_polling_transmit(spiHandle, &t);  //Transmit and receive the data using polling mode (blocking until done)
+	assert(ret==ESP_OK);            //Check if transmission and reception were successful
+
+	// printf("DataSend: %X\n\n", data);
+	// printf("DataReceive: %X\n\n", DataReceive);
+
+	return SPI_SWAP_DATA_RX(DataReceive, 16); //Return the received data
+	// return DataReceive
+}
+
 
 
 // // Writes data to SPI and reads returned data
@@ -163,43 +206,43 @@ static const int spiClk = 12*1000*1000;
 
 
 
-uint16_t spiReadWriteReg(uint8_t chipSelect, uint16_t data)
-{
-	spi_device_handle_t spiHandle = spi0; //Declare a handle for the selected SPI device
+// uint16_t spiReadWriteReg(uint8_t chipSelect, uint16_t data)
+// {
+// 	spi_device_handle_t spiHandle = spi0; //Declare a handle for the selected SPI device
 
 
-	uint16_t DataSend = SPI_SWAP_DATA_TX(data, 16); //Swap and copy the data to be sent to a local variable
+// 	uint16_t DataSend = SPI_SWAP_DATA_TX(data, 16); //Swap and copy the data to be sent to a local variable
 
-	uint16_t DataReceive = 0; //Declare a variable to hold the received data
+// 	uint16_t DataReceive = 0; //Declare a variable to hold the received data
 
-	esp_err_t ret;
-	// switch(chipSelect) //Select which SPI device to use based on chip select parameter
-	// {
-	// 	case 0:
-	// 		spiHandle = spi0; //Use chip select 0 device handle
-	// 		break;
-	// 	case 1:
-	// 		spiHandle = spi1; //Use chip select 1 device handle
-	// 		break;
-	// 	default:
-	// 		spiHandle = spi0; //Use chip select 0 device handle by default
-	// }
+// 	esp_err_t ret;
+// 	// switch(chipSelect) //Select which SPI device to use based on chip select parameter
+// 	// {
+// 	// 	case 0:
+// 	// 		spiHandle = spi0; //Use chip select 0 device handle
+// 	// 		break;
+// 	// 	case 1:
+// 	// 		spiHandle = spi1; //Use chip select 1 device handle
+// 	// 		break;
+// 	// 	default:
+// 	// 		spiHandle = spi0; //Use chip select 0 device handle by default
+// 	// }
 
-	//Create a transaction structure
-	spi_transaction_t t;
-	memset(&t, 0, sizeof(t));       //Zero out the transaction structure
-	t.length = 16;               //Set the length of the transaction in bits (16 bytes * 8 bits/byte)
-	t.tx_buffer = &DataSend;         //Set the pointer to the data buffer to be sent
-	t.rx_buffer = &DataReceive;      //Set the pointer to the data buffer to be received
+// 	//Create a transaction structure
+// 	spi_transaction_t t;
+// 	memset(&t, 0, sizeof(t));       //Zero out the transaction structure
+// 	t.length = 16;               //Set the length of the transaction in bits (16 bytes * 8 bits/byte)
+// 	t.tx_buffer = &DataSend;         //Set the pointer to the data buffer to be sent
+// 	t.rx_buffer = &DataReceive;      //Set the pointer to the data buffer to be received
 
-	//Transmit and receive the data using polling mode
-	ret = spi_device_polling_transmit(spi0, &t);  //Transmit and receive the data using polling mode (blocking until done)
-	assert(ret==ESP_OK);            //Check if transmission and reception were successful
+// 	//Transmit and receive the data using polling mode
+// 	ret = spi_device_polling_transmit(spiHandle, &t);  //Transmit and receive the data using polling mode (blocking until done)
+// 	assert(ret==ESP_OK);            //Check if transmission and reception were successful
 
-	// printf("DataSend: %X\n\n", data);
-	// printf("DataReceive: %X\n\n", DataReceive);
+// 	// printf("DataSend: %X\n\n", data);
+// 	// printf("DataReceive: %X\n\n", DataReceive);
 
-	return SPI_SWAP_DATA_RX(DataReceive, 16); //Return the received data
-	// return DataReceive
-}
+// 	return SPI_SWAP_DATA_RX(DataReceive, 16); //Return the received data
+// 	// return DataReceive
+// }
 

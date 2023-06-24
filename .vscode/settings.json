@@ -80,6 +80,8 @@
         "__string": "cpp",
         "compare": "cpp",
         "concepts": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "functional": "cpp",
+        "sdkconfig.h": "c"
     }
 }

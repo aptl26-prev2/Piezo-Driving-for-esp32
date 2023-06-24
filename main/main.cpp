@@ -18,14 +18,17 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "functions.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include "example.h"
+// #include 
 
 #include "driver/spi_master.h"
 #include "spi.h"
@@ -40,6 +43,8 @@
 #include "esp_err.h"
 #include "esp_timer.h"
 #include "math.h"
+#include "BluetoothSerial.h"
+#include "nvs_flash.h"
 // #include "../components/esp_timer/include/esp_timer.h"
 // #include "../components/esp_timer/include/esp_timer.h"
 
@@ -71,6 +76,7 @@
 /* USER CODE BEGIN PV */
 
 // !ESP code
+BluetoothSerial BTSerial;
 
 SPIClass * hspi1 = NULL;
 SPIClass * hspi4 = NULL;
@@ -96,10 +102,10 @@ esp_timer_handle_t htim2;
 #define ALTERNATE_PINS
 
 #ifdef ALTERNATE_PINS
-  #define VSPI_MISO   2
-  #define VSPI_MOSI   4
-  #define VSPI_SCLK   0
-  #define VSPI_SS     33
+  #define VSPI_MISO   19
+  #define VSPI_MOSI   18
+  #define VSPI_SCLK   17
+  #define VSPI_SS     16
 
   #define HSPI_MISO   13
   #define HSPI_MOSI   12
@@ -129,6 +135,7 @@ esp_timer_handle_t htim2;
 uint16_t index_b;
 
 spi_device_handle_t spi0;
+spi_device_handle_t spi1;
 
 
 /********************************************************
@@ -309,11 +316,20 @@ static void MX_SPI1_Init(void)
     .queue_size=7,                          //Set the queue size to 7
   };
 
+  spi_device_interface_config_t devcfg1={
+    .mode=0,                                //Set the SPI mode to 0
+    .clock_speed_hz= spiClk,           //Set the clock speed to 10 MHz
+    .spics_io_num=CS_PIN2,              //Set the CS pin number for chip select 0
+    .queue_size=7,                          //Set the queue size to 7
+  };
+
   // spi_device_handle_t spi0;
   //Initialize the SPI devices
+  gpio_set_level(CS_PIN2, 1); 
   esp_err_t ret=spi_bus_initialize(SPI_HOST, &buscfg, DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
   assert(ret==ESP_OK); //Check if the initialization was successful
   ret=spi_bus_add_device(SPI_HOST, &devcfg0, &spi0); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  ret=spi_bus_add_device(SPI_HOST, &devcfg1, &spi1); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
   assert(ret==ESP_OK); //Check if adding device was successful
 
   
@@ -362,6 +378,33 @@ static void MX_SPI4_Init(void)
   // hspi4 = new SPIClass(VSPI);
   // hspi4->begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI, VSPI_SS);
 
+
+
+// //!New spi library
+//   static const int spiClk = 12*1000*1000;
+//   // static const int spiClk = 20*1000*1000;
+//   spi_bus_config_t buscfg={
+//     .mosi_io_num=HSPI_MOSI, //Set the MOSI pin number
+//     .miso_io_num=HSPI_MISO, //Set the MISO pin number
+//     .sclk_io_num=HSPI_SCLK, //Set the SCLK pin number
+//     .quadwp_io_num=-1, //Set the QUADWP pin number to -1 (not used)
+//     .quadhd_io_num=-1, //Set the QUADHD pin number to -1 (not used)
+//     .max_transfer_sz=0 //Set the maximum transfer size in bytes
+//   };
+
+//   spi_device_interface_config_t devcfg0={
+//     .mode=0,                                //Set the SPI mode to 0
+//     .clock_speed_hz= spiClk,           //Set the clock speed to 10 MHz
+//     .spics_io_num=CS_PIN2,              //Set the CS pin number for chip select 0
+//     .queue_size=7,                          //Set the queue size to 7
+//   };
+
+//   // spi_device_handle_t spi0;
+//   //Initialize the SPI devices
+//   esp_err_t ret=spi_bus_initialize(SPI_HOST, &buscfg, DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
+//   assert(ret==ESP_OK); //Check if the initialization was successful
+//   ret=spi_bus_add_device(SPI_HOST, &devcfg0, &spi0); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+//   assert(ret==ESP_OK); //Check if adding device was successful
 }
 
 /**
@@ -800,6 +843,23 @@ void driving_test(void) {
   
 }
 
+void bt_setup(void) {
+  BTSerial.begin("HC-05");
+}
+
+void bt_read_send(void) {
+  while (true) {
+    if (BTSerial.available()) {
+      String data = BTSerial.readStringUntil('\n');
+      
+      printf("Reciecve: %s\n", data.c_str());
+    }
+
+    BTSerial.println("Message sent from esp32");
+  }
+
+}
+
 
 void app_main(void)
 {
@@ -825,6 +885,17 @@ void app_main(void)
 
   /* Initialize all configured peripherals */
   // MX_GPIO_Init();
+  esp_err_t ret;
+
+  // Initialize NVS
+  ret = nvs_flash_init();
+  if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      // NVS partition was truncated and needs to be erased
+      // Retry nvs_flash_init
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+  }
+    ESP_ERROR_CHECK( ret );
   MX_TIM2_Init();
   MX_SPI1_Init();
   // MX_I2C1_Init();
@@ -845,8 +916,11 @@ void app_main(void)
 	// ledExWrite(LEDEX_D1, color_green);
 
 	// run example code
-	example();
+	// example();
+  drive(50, 1, SINE);
 
+  // bt_setup();
+  // bt_read_send();
   // #define VSPI_MISO   MISO
   // #define VSPI_MOSI   MOSI
   // #define VSPI_SCLK   SCK

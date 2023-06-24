@@ -100,16 +100,15 @@ void Error_Handler(void);
 // It shows a different output method to play waveforms, one used when synchronization between BOS1901
 // and MCU or other BOS1901 is required.
 //#define EXAMPLE_DRIVING
-
 // Button emulation example, sensing on press and release, feedback output managed by the FIFO,
 // detection using a combination of threshold and slope methods, filtered VFEEDBACK measurements,
 // negative stabilization after waveforms.
 // This example contains the latest improvements to sensing and stabilizing the piezo actuator.
 // It is the go-to example for the best button experience.
 // #define EXAMPLE_SENSING
-#define EXAMPLE_ADVSENSING
+// #define EXAMPLE_ADVSENSING
 // #define EXAMPLE_DRIVING
-// #define DRIVING_TEST 
+#define DRIVING_TEST 
 
 /* USER CODE END Private defines */
 #ifdef __cplusplus

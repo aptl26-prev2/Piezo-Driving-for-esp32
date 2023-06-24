@@ -1,11 +1,49 @@
 #include <iostream>
+#include <stdlib.h>
+#include <stdio.h>
+// #include <unistd.h>
+#include <dirent.h>
 #include <fstream>
-#include <rapidjson/document.h>
+#include "../components/rapidjson/include/rapidjson/document.h"
 
 using namespace rapidjson;
 
-int main()
+SizeType waveArrSize;
+float* waveArr;
+
+void parse()
 {
+
+    DIR *d; // directory stream
+    struct dirent *dir; // directory entry
+    d = opendir ("."); // open current directory
+    if (d) {
+        while ((dir = readdir (d)) != NULL) { // read each entry
+        if (dir->d_type == DT_REG) { // regular file
+            printf ("%s (file)\n", dir->d_name);
+        }
+        else if (dir->d_type == DT_DIR) { // directory
+            printf ("%s (directory)\n", dir->d_name);
+        }
+        else { // other type
+            printf ("%s (other)\n", dir->d_name);
+        }
+        }
+        closedir (d); // close directory stream
+    }
+    else {
+        perror ("opendir");
+        exit (EXIT_FAILURE);
+    }
+    // char path [200];
+    // if (getcwd (path, 200) != NULL) {
+    //     printf ("Current directory: %s\n", path);
+    // }
+    // else {
+    //     perror ("getcwd");
+    //     exit (EXIT_FAILURE);
+    // }
+
     // Create a JSON document object
     Document document;
 
@@ -29,20 +67,20 @@ int main()
             auto array = document.GetArray();
 
             // Get the size of the array
-            SizeType size = array.Size();
+            SizeType waveArrSize = array.Size();
 
             // Create a C++ array of floats with the same size
-            float* carray = new float[size];
+            float* waveArr = new float[waveArrSize];
 
             // Iterate over the array elements and convert them to floats
-            for (SizeType i = 0; i < size; i++)
+            for (SizeType i = 0; i < waveArrSize; i++)
             {
                 // std::cout << "array element: " << carray[i] << std::endl;
                 // Check if the element is a number
                 if (array[i].IsNumber())
                 {
                     // Convert the element to a float and store it in the C++ array
-                    carray[i] = array[i].GetFloat();
+                    waveArr[i] = array[i].GetFloat();
                 }
                 else
                 {
@@ -51,14 +89,12 @@ int main()
                 }
             }
 
-            // Print the C++ array elements
-            for (SizeType i = 0; i < size; i++)
-            {
-                std::cout << carray[i] << std::endl;
-            }
+            // // Print the C++ array elements
+            // for (SizeType i = 0; i < waveArrSize; i++)
+            // {
+            //     std::cout << waveArr[i] << std::endl;
+            // }
 
-            // Delete the C++ array
-            delete[] carray;
         }
         else
         {
@@ -74,6 +110,9 @@ int main()
         // Handle file opening error
         std::cerr << "Unable to open file" << std::endl;
     }
+}
 
+int main() {
+    parse();
     return 0;
 }

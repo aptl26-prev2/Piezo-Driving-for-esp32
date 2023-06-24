@@ -36,6 +36,7 @@
 /Users/aghyaddeeb/esp/translation/build/esp-idf/cxx/libcxx.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/app_trace/libapp_trace.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/asio/libasio.a
+/Users/aghyaddeeb/esp/translation/build/esp-idf/bt/libbt.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/cbor/libcbor.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/unity/libunity.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/cmock/libcmock.a
