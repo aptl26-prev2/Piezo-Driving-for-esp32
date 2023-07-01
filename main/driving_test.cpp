@@ -95,7 +95,7 @@ WaveformType waveform;
 // Press sensing parameters : detection successful if : (value1 AND slode) OR value2
 //// value1 : value threshold detection
 #define PRESS_DETECTION_VALUE1_ENABLED 		(true)
-#define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.8f) // V
+#define PRESS_DETECTION_VALUE1_THRESHOLD 	(1.0f) // V
 #define PRESS_DETECTION_VALUE1_HOLDTIME_US 	(0) // us
 #define PRESS_DETECTION_VALUE1_HOLDTIME 	(PRESS_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
@@ -120,7 +120,7 @@ WaveformType waveform;
 //// slope : slope threshold detection
 #define RELEASE_DETECTION_SLOPE_ENABLED 	(true)
 #define RELEASE_DETECTION_SLOPE_THRESHOLD 	(3000) // uV/ms
-#define RELEASE_DETECTION_SLOPE_HOLDTIME_US (4000) // us
+#define RELEASE_DETECTION_SLOPE_HOLDTIME_US (8000) // us
 #define RELEASE_DETECTION_SLOPE_HOLDTIME    (RELEASE_DETECTION_SLOPE_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 #define RELEASE_DETECTION_SLOPE_MAX_WINDOW_US (DATA_HANDLER_SLOPE_MAX_WINDOW_US) // us, window time
 #define RELEASE_DETECTION_SLOPE_WINDOW_SIZE (RELEASE_DETECTION_SLOPE_MAX_WINDOW_US * SENSING_SAMPLING_RATE / 1000000) // cycles
@@ -251,7 +251,7 @@ typedef struct {
 ********************************************************/
 
 // bos1901 initialization values
-static Bos1901 bos1901[NB_CHANNELS] = {
+Bos1901 bos1901[NB_CHANNELS] = {
 	{
 		.state = SensingState_A_init,
 		.press_waveform_size = 0,
@@ -289,6 +289,11 @@ extern size_t waveArrSize;
 extern float* waveArr;
 extern double* press_waveform;
 extern void parse();
+
+bool check = false;
+bool sense = false;
+bool press = false;
+bool release = false;
 
 static int advSensingBos1901_DacHsIncrement(uint8_t channel, uint8_t dachsInc);
 static int advSensingBos1901_Register_Init(uint8_t channel);
@@ -407,133 +412,126 @@ static float advSensingVfeedback2Volt(int16_t vfeedback)
 
 // Elementary waveform calculation function
 
-#ifdef Button_Press
-
-static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float vMax, float vMin, uint16_t freq, uint8_t cycles)
-{
-    float amplitude = (vMax - vMin)/2;
-    float offset = (vMax + vMin)/2;
-    uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
-    uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
-    double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
-    float phaseShift;
-    uint16_t endVal;
-    
-    // calculate phase
-    if (vMin >= 0)
-    {
-        phaseShift = -M_PI;
-        endVal = REFERENCE_MINUS_1LSB;
-    }
-    else if (vMax <= 0)
-    {
-        phaseShift = 0;
-        endVal = REFERENCE_PLUS_1LSB;
-    }
-    else
-    {
-        phaseShift = -M_PI - acosf(fabsf(offset) / amplitude);
-        endVal = fabsf(vMax) > fabsf(vMin) ? REFERENCE_MINUS_1LSB : REFERENCE_PLUS_1LSB;
-    }
-
-    *size = nbrOfSamplePerCycle * cycles;
-    for(uint16_t i = 0; i < *size; i++)
-    {
-        table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
-    }
-    // ending value
-    (*size)++;
-    table[(*size)-1] = endVal;
-}
-
-#endif
-
-#ifndef Button_Press
-
-// 
-
 static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float vMax, float vMin, uint16_t freq, uint8_t cycles, WaveformType waveformType)
 {
-    float amplitude = (vMax - vMin)/2;
-    float offset = (vMax + vMin)/2;
-    uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
-    uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
-    double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
-    float phaseShift;
-    uint16_t endVal;
-    
-    // calculate phase
-    if (vMin >= 0)
-    {
-        phaseShift = -M_PI;
-        endVal = REFERENCE_MINUS_1LSB;
-    }
-    else if (vMax <= 0)
-    {
-        phaseShift = 0;
-        endVal = REFERENCE_PLUS_1LSB;
-    }
-    else
-    {
-        phaseShift = -M_PI - acosf(fabsf(offset) / amplitude);
-        endVal = fabsf(vMax) > fabsf(vMin) ? REFERENCE_MINUS_1LSB : REFERENCE_PLUS_1LSB;
-    }
-
-    *size = nbrOfSamplePerCycle * cycles;
-
-    for(uint16_t i = 0; i < *size; i++)
-    {
-        // table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * 1 + (vMax + vMin)/2 );
-        // printf("table[%u]: %u\n", i, (uint16_t) ((vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 ));
-        double angle = (double)(theta0*i + phaseShift);
-        switch (waveformType) {
-            case SINE:
-                table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * cos(angle) + (vMax + vMin)/2 );
-                break;
-            case SQUARE:
-                table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * (fmod(angle, 2 * PI) < PI ? 1 : -1) + (vMax + vMin)/2 );
-                break;
-            case SAWTOOTH:
-                table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * (fmod(angle, 2 * PI) / (2 * PI) * 2 - 1) + (vMax + vMin)/2 );
-                break;
-            case TRIANGLE:
-                table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * (4 * fabs(fmod(angle, 2 * PI) / (2 * PI) - 0.5) - 1) + (vMax + vMin)/2 );
-                break;
-            default:
-                table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * cos(angle) + (vMax + vMin)/2 );
-                break;
+    if (sense) {
+        freq = 500;
+        float amplitude = (vMax - vMin)/2;
+        float offset = (vMax + vMin)/2;
+        uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
+        uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
+        double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
+        float phaseShift;
+        uint16_t endVal;
+        
+        // calculate phase
+        if (vMin >= 0)
+        {
+            phaseShift = -M_PI;
+            endVal = REFERENCE_MINUS_1LSB;
         }
+        else if (vMax <= 0)
+        {
+            phaseShift = 0;
+            endVal = REFERENCE_PLUS_1LSB;
+        }
+        else
+        {
+            phaseShift = -M_PI - acosf(fabsf(offset) / amplitude);
+            endVal = fabsf(vMax) > fabsf(vMin) ? REFERENCE_MINUS_1LSB : REFERENCE_PLUS_1LSB;
+        }
+
+        *size = nbrOfSamplePerCycle * cycles;
+        for(uint16_t i = 0; i < *size; i++)
+        {
+            table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+        }
+        // ending value
+        (*size)++;
+        table[(*size)-1] = endVal;
     }
 
-    // ending value
-    (*size)++;
-    table[(*size)-1] = endVal;
+    else {
+        float amplitude = (vMax - vMin)/2;
+        float offset = (vMax + vMin)/2;
+        uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
+        uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
+        double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
+        float phaseShift;
+        uint16_t endVal;
+        
+        // calculate phase
+        if (vMin >= 0)
+        {
+            phaseShift = -M_PI;
+            endVal = REFERENCE_MINUS_1LSB;
+        }
+        else if (vMax <= 0)
+        {
+            phaseShift = 0;
+            endVal = REFERENCE_PLUS_1LSB;
+        }
+        else
+        {
+            phaseShift = -M_PI - acosf(fabsf(offset) / amplitude);
+            endVal = fabsf(vMax) > fabsf(vMin) ? REFERENCE_MINUS_1LSB : REFERENCE_PLUS_1LSB;
+        }
+
+        *size = nbrOfSamplePerCycle * cycles;
+
+        for(uint16_t i = 0; i < *size; i++)
+        {
+            // table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * 1 + (vMax + vMin)/2 );
+            // printf("table[%u]: %u\n", i, (uint16_t) ((vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 ));
+            double angle = (double)(theta0*i + phaseShift);
+            switch (waveformType) {
+                case SINE:
+                    table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * cos(angle) + (vMax + vMin)/2 );
+                    break;
+                case SQUARE:
+                    table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * (fmod(angle, 2 * PI) < PI ? 1 : -1) + (vMax + vMin)/2 );
+                    break;
+                case SAWTOOTH:
+                    table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * (fmod(angle, 2 * PI) / (2 * PI) * 2 - 1) + (vMax + vMin)/2 );
+                    break;
+                case TRIANGLE:
+                    table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * (4 * fabs(fmod(angle, 2 * PI) / (2 * PI) - 0.5) - 1) + (vMax + vMin)/2 );
+                    break;
+                default:
+                    table[i] = advSensingVolt2Amplitude((vMax - vMin) / 2 * cos(angle) + (vMax + vMin)/2 );
+                    break;
+            }
+        }
+
+        // ending value
+        (*size)++;
+        table[(*size)-1] = endVal;
+    }
 }
 
-#endif
 // Calculate Press and Release Feedback Waveforms
 static void advSensingCalculateWaveforms(uint8_t channel)
 {
     // parse();
 
     // ******* Press Feedback Waveform : edge-smoothed sine *******
-    printf("Start of press waveform\n");
+    // printf("Start of press waveform\n");
     advSensingCalculateWaveform(bos1901[channel].press_waveform, &bos1901[channel].press_waveform_size, PRESS_SIG_VOLTAGE_MAX, PRESS_SIG_VOLTAGE_MIN, PRESS_SIG_FREQ, PRESS_SIG_CYCLE, WAVEFORM);
-    printf("end of press waveform\n");
+    // printf("end of press waveform\n");
     // printf("table first: %u", bos1901[channel].press_waveform[0]);
 
     // ******* Press Stabilization Waveform : negative sine *******
-    printf("Start of press stabalization waveform\n");
+    // printf("Start of press stabalization waveform\n");
     advSensingCalculateWaveform(bos1901[channel].press_stab_waveform, &bos1901[channel].press_stab_waveform_size, 0, PRESS_CREEP_STABILISATION_MIN, PRESS_CREEP_STABILISATION_FREQ, 1, SINE);
-    printf("End of press stabalization waveform\n");
+    // printf("End of press stabalization waveform\n");
     // ******* Release Feedback Waveform : edge-smoothed sine *******
-    printf("Start of Release  waveform\n");
+    // printf("Start of Release  waveform\n");
     advSensingCalculateWaveform(bos1901[channel].release_waveform, &bos1901[channel].release_waveform_size, RELEASE_SIG_VOLTAGE_MAX, RELEASE_SIG_VOLTAGE_MIN, RELEASE_SIG_FREQ, RELEASE_SIG_CYCLE, WAVEFORM);
-    printf("end of release waveform\n");
+    // printf("end of release waveform\n");
     // ******* Release Stabilization Waveform : negative sine *******
-    printf("Start of release stabalization waveform\n");
+    // printf("Start of release stabalization waveform\n");
     advSensingCalculateWaveform(bos1901[channel].release_stab_waveform, &bos1901[channel].release_stab_waveform_size, 0, RELEASE_CREEP_STABILISATION_MIN, RELEASE_CREEP_STABILISATION_FREQ, 1, SINE);
-    printf("End of release stabalization waveform\n");
+    // printf("End of release stabalization waveform\n");
 }
 
 static bool advSensingPlayWaveformBlocking(uint8_t channel, uint16_t* waveform, uint16_t size)
@@ -647,6 +645,7 @@ static void advSensingNextState(uint8_t channel)
             break;
         case SensingState_D_press_creep_stab:
             bos1901[channel].state = SensingState_E_release_setup;
+            check = true;
             break;
         case SensingState_E_release_setup:
             bos1901[channel].state = SensingState_E_release_sensing;
@@ -659,6 +658,7 @@ static void advSensingNextState(uint8_t channel)
             break;
         case SensingState_G_release_creep_stab:
             bos1901[channel].state = SensingState_B_press_setup;
+            check = true;
             break;
         default:
             bos1901[channel].state = SensingState_A_init;
@@ -712,16 +712,22 @@ static void advSensingPress(uint8_t channel)
     advSensingValueDetection(&bos1901[channel].pressValueSense2, &bos1901[channel].voltageReadState);
     // evaluate combined result
     bool sensingResult = advSensingEvalDetection(&bos1901[channel].pressValueSense1, &bos1901[channel].pressSlopeSense, &bos1901[channel].pressValueSense2, &bos1901[channel].voltageReadState);
-    
-    advSensingNextState(channel);  
 
-    // if(sensingResult)
-    // {
-    //     // printf("\n\n\n\n\n\n\n\nsensing\n\n\n\n\n\n\n");
-    //     // LED STATE
-    //     // ledExWrite(bos1901[channel].led, color_green);
-    //     advSensingNextState(channel);  // go to next phase
-    // }
+    if (sense) {
+
+        if(sensingResult)
+        {
+            printf("\n\n\n\n\n\n\n\nsensing press\n\n\n\n\n\n\n");
+            // LED STATE
+            // ledExWrite(bos1901[channel].led, color_green);
+            advSensingNextState(channel);  // go to next phase
+            press = true;
+        }
+    }
+
+    else {
+        advSensingNextState(channel);  
+    }
 }
 
 // Phase C - Press Feedback Waveform
@@ -790,14 +796,22 @@ static void advSensingRelease(uint8_t channel)
     // evaluate combined result
     bool sensingResult = advSensingEvalDetection(&bos1901[channel].releaseValueSense1, &bos1901[channel].releaseSlopeSense, &bos1901[channel].releaseValueSense2, &bos1901[channel].voltageReadState);
 
-    advSensingNextState(channel);  
+    if (sense) {
+        if(sensingResult) {
+            printf("\n\n\n\n\n\n\n\nsensing release\n\n\n\n\n\n\n");
+            // LED STATE
+            // ledExWrite(bos1901[channel].led, color_black);
+            advSensingNextState(channel);  // go to next phase
+            release = true;
+        }
 
-//     if(sensingResult)
-//     {
-//         // LED STATE
-//         // ledExWrite(bos1901[channel].led, color_black);
-//         advSensingNextState(channel);  // go to next phase
-//     }
+    }
+
+    else {
+        advSensingNextState(channel);     
+    }
+
+
 }
 
 // Phase F - Release Feedback Waveform
@@ -880,7 +894,7 @@ static void advSensingEnterPhase(uint8_t channel)
 
 
 // Executing sensing
-static void advSensingExecuteSensing()
+void advSensingExecuteSensing()
 {
     // Enters every time the 1kHz timer expires
     if(timeIsTimerExpired())
@@ -1182,9 +1196,17 @@ void example(void)
 
 void drive(uint16_t freq, uint8_t cycles, WaveformType waveformType) {
 
-frequency = freq;
-waveform = waveformType;
+    frequency = freq;
+    waveform = waveformType;
+    for (int i = 0; i< NB_CHANNELS; i++) {
+        advSensingCalculateWaveforms(i);
+    }
+    
 
+    // while(1)
+    // {
+        
+    // }
 }
 
 #endif

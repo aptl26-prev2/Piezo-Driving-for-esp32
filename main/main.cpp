@@ -45,6 +45,7 @@
 #include "math.h"
 #include "BluetoothSerial.h"
 #include "nvs_flash.h"
+#include "../components/rapidjson/include/rapidjson/document.h"
 // #include "../components/esp_timer/include/esp_timer.h"
 // #include "../components/esp_timer/include/esp_timer.h"
 
@@ -144,6 +145,8 @@ spi_device_handle_t spi1;
 volatile uint64_t timer2DefaultPeriod = 0;
 volatile uint64_t timerCurrPeriod = 0;
 volatile uint64_t timer2NewPeriod = 0;
+bool first = true;
+bool st = false;
 
 
 void HAL_TIM_PeriodElapsedCallback(void* arg);
@@ -843,23 +846,100 @@ void driving_test(void) {
   
 }
 
-void bt_setup(void) {
+void stop () {
+  check = true;
+  st = true;
+}
+
+
+void callFunctionBasedOnJson(const std::string& json) {
+    rapidjson::Document d;
+    d.Parse(json.c_str());
+
+    std::map<std::string, WaveformType> waveformTypeMap = {
+        {"SINE", SINE},
+        {"SQUARE", SQUARE},
+        {"TRIANGLE", TRIANGLE}
+        // Add more mappings here...
+    };
+
+    if (!d.IsObject()) {
+      printf("d isn't an object\n");
+    }
+
+    if (d.HasMember("functionName") && d["functionName"].IsString()) {
+        std::string functionName = d["functionName"].GetString();
+
+        if (functionName == "drive" && d.HasMember("args") && d["args"].IsArray()) {
+            const rapidjson::Value& args = d["args"];
+            if (args.Size() == 3 && args[0].IsInt() && args[1].IsInt() && args[2].IsString()) {
+                std::string waveformTypeString = args[2].GetString();
+                if (waveformTypeMap.count(waveformTypeString) > 0) {
+                    drive(args[0].GetUint(), args[1].GetUint(), waveformTypeMap[waveformTypeString]);
+                }
+            }
+          
+          first = false;
+          check = false; 
+          st = false;
+        }
+
+        else if (functionName == "stop") {
+          printf("inside elif\n");
+          stop();
+        } 
+
+        else if (functionName == "sense") {
+          sense = true;
+          first = false;
+          check = false; 
+          st = false;
+        }
+    }
+}
+
+
+ void bt_setup(void) {
   BTSerial.begin("HC-05");
 }
 
 void bt_read_send(void) {
+  check = true;
   while (true) {
+    // printf("inside outer while; \n");
     if (BTSerial.available()) {
       String data = BTSerial.readStringUntil('\n');
       
       printf("Reciecve: %s\n", data.c_str());
+      callFunctionBasedOnJson(data.c_str());
+    }
+    
+    else if (!st) {
+      check = false;
     }
 
-    BTSerial.println("Message sent from esp32");
+    while (!check && !first) {
+      // printf("inside inner while; \n");
+      advSensingExecuteSensing();
+      vTaskDelay(1);
+    } 
+
+    if (press) {
+      BTSerial.println("{\"press\": true}");
+      press = false;
+    }
+
+    if (release) {
+      BTSerial.println("{\"release\": true}");
+      release = false;
+    }
+
+    vTaskDelay(1);
   }
 
 }
 
+// add button press mode and possible button press during viberation;
 
 void app_main(void)
 {
@@ -917,10 +997,14 @@ void app_main(void)
 
 	// run example code
 	// example();
-  drive(50, 1, SINE);
+  // drive(50, 1, SINE); // freq, cycles, waveformType
 
-  // bt_setup();
-  // bt_read_send();
+  bt_setup();
+  bt_read_send();
+
+  // std::string json = R"({"functionName":"drive","args":[50,1,"SINE"]})";
+  // callFunctionBasedOnJson(json);
+
   // #define VSPI_MISO   MISO
   // #define VSPI_MOSI   MOSI
   // #define VSPI_SCLK   SCK
