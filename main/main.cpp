@@ -26,6 +26,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string>
 
 #include "example.h"
 // #include 
@@ -849,6 +850,16 @@ void driving_test(void) {
 void stop () {
   check = true;
   st = true;
+  sense = false;
+}
+
+bool arrayIsAllZeros(uint8_t array[], int size) {
+    for (int i = 0; i < size; i++) {
+        if (array[i] != 0) {
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -867,8 +878,10 @@ void callFunctionBasedOnJson(const std::string& json) {
       printf("d isn't an object\n");
     }
 
+
     if (d.HasMember("functionName") && d["functionName"].IsString()) {
         std::string functionName = d["functionName"].GetString();
+        printf("inside functionName\n\n");
 
         if (functionName == "drive" && d.HasMember("args") && d["args"].IsArray()) {
             const rapidjson::Value& args = d["args"];
@@ -878,14 +891,28 @@ void callFunctionBasedOnJson(const std::string& json) {
                     drive(args[0].GetUint(), args[1].GetUint(), waveformTypeMap[waveformTypeString]);
                 }
             }
+
+            if (d.HasMember("fingerToActivate") && d["fingerToActivate"].IsInt()) {
+                int fingerToActivate = d["fingerToActivate"].GetInt();
+                fingersDriving[fingerToActivate] = 1;
+            }
           
-          first = false;
-          check = false; 
-          st = false;
+            first = false;
+            check = false; 
+            st = false;
+            BTSerial.println("vibrating");
         }
 
-        else if (functionName == "stop") {
-          printf("inside elif\n");
+        else if (functionName == "stopDriving" && d.HasMember("fingerToStop") && d["fingerToStop"].IsInt()) {
+          int fingerToStop = d["fingerToStop"].GetInt();
+          fingersDriving[fingerToStop] = 0;
+
+          if (arrayIsAllZeros(fingersDriving, sizeof(fingersDriving))) {
+            stop();
+          }
+        } 
+
+        else if (functionName == "stopSensing" ) {
           stop();
         } 
 
@@ -904,36 +931,47 @@ void callFunctionBasedOnJson(const std::string& json) {
 }
 
 void bt_read_send(void) {
+  int i = 0;
   check = true;
   while (true) {
     // printf("inside outer while; \n");
     if (BTSerial.available()) {
       String data = BTSerial.readStringUntil('\n');
       
-      printf("Reciecve: %s\n", data.c_str());
+      printf("\n\n\nReciecve: %s\n", data.c_str());
       callFunctionBasedOnJson(data.c_str());
     }
     
-    else if (!st) {
+    else if (!st) { //st stands for stop
       check = false;
     }
 
     while (!check && !first) {
-      // printf("inside inner while; \n");
+      printf("inside inner while; \n");
       advSensingExecuteSensing();
       vTaskDelay(1);
     } 
 
     if (press) {
-      BTSerial.println("{\"press\": true}");
+      char str[40];
+      sprintf(str, "{\"press\": true, \"fingerSensing\": %u}", fingerSensing);
+      BTSerial.println(str);
       press = false;
     }
 
     if (release) {
-      BTSerial.println("{\"release\": true}");
+      char str[40];
+      sprintf(str, "{\"release\": true, \"fingerSensing\": %u}", fingerSensing);
+      BTSerial.println(str);
       release = false;
     }
 
+    if (i % 20000 == 0) 
+    {
+      // BTSerial.println("message sent from esp\n");
+    }
+
+    i++;
     vTaskDelay(1);
   }
 
@@ -1033,3 +1071,7 @@ void app_main(void)
   // driving_test();
  
 }
+
+// use the bluetooth serial app to time each send and receive time and then use
+// a timer inside esp32 to find what block of code is taking too much time
+// In addition, consider changing the fingers before calling drive in the json

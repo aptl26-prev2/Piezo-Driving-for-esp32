@@ -294,6 +294,8 @@ bool check = false;
 bool sense = false;
 bool press = false;
 bool release = false;
+uint8_t fingerSensing;
+uint8_t fingersDriving[5] = {0, 1, 6, 6, 6};
 
 static int advSensingBos1901_DacHsIncrement(uint8_t channel, uint8_t dachsInc);
 static int advSensingBos1901_Register_Init(uint8_t channel);
@@ -717,11 +719,15 @@ static void advSensingPress(uint8_t channel)
 
         if(sensingResult)
         {
-            printf("\n\n\n\n\n\n\n\nsensing press\n\n\n\n\n\n\n");
+            // printf("\n\n\n\n\n\n\n\nsensing press\n\n\n\n\n\n\n");
             // LED STATE
             // ledExWrite(bos1901[channel].led, color_green);
             advSensingNextState(channel);  // go to next phase
             press = true;
+            fingerSensing = channel;
+        }
+        else {
+            check = true;
         }
     }
 
@@ -798,11 +804,15 @@ static void advSensingRelease(uint8_t channel)
 
     if (sense) {
         if(sensingResult) {
-            printf("\n\n\n\n\n\n\n\nsensing release\n\n\n\n\n\n\n");
+            // printf("\n\n\n\n\n\n\n\nsensing release\n\n\n\n\n\n\n");
             // LED STATE
             // ledExWrite(bos1901[channel].led, color_black);
             advSensingNextState(channel);  // go to next phase
             release = true;
+            fingerSensing = channel;
+        }
+        else {
+            check = true;
         }
 
     }
@@ -901,10 +911,20 @@ void advSensingExecuteSensing()
     {
     	timeResetTimerFlag(); // reset flag for time-based operations
 
+        // original code
         // for each channel
-        for(uint8_t i = 0; i < NB_CHANNELS; i++)
+        // for(uint8_t i = 0; i < NB_CHANNELS; i++)
+        // {
+        //     advSensingEnterPhase(i);
+        // }
+
+        // // Code modified to allow only some fingers to vibrate
+        for(uint8_t i = 0; i < sizeof(fingersDriving); i++)
         {
-            advSensingEnterPhase(i);
+            if (fingersDriving[i] == 1)
+            {
+                advSensingEnterPhase(i);
+            }
         }
     }
 }
