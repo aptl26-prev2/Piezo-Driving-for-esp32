@@ -95,7 +95,7 @@ WaveformType waveform;
 // Press sensing parameters : detection successful if : (value1 AND slode) OR value2
 //// value1 : value threshold detection
 #define PRESS_DETECTION_VALUE1_ENABLED 		(true)
-#define PRESS_DETECTION_VALUE1_THRESHOLD 	(1.0f) // V
+#define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.2f) // V
 #define PRESS_DETECTION_VALUE1_HOLDTIME_US 	(0) // us
 #define PRESS_DETECTION_VALUE1_HOLDTIME 	(PRESS_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
@@ -119,7 +119,7 @@ WaveformType waveform;
 #define RELEASE_DETECTION_VALUE1_HOLDTIME 	(RELEASE_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
 #define RELEASE_DETECTION_SLOPE_ENABLED 	(true)
-#define RELEASE_DETECTION_SLOPE_THRESHOLD 	(3000) // uV/ms
+#define RELEASE_DETECTION_SLOPE_THRESHOLD 	(1000) // uV/ms
 #define RELEASE_DETECTION_SLOPE_HOLDTIME_US (8000) // us
 #define RELEASE_DETECTION_SLOPE_HOLDTIME    (RELEASE_DETECTION_SLOPE_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 #define RELEASE_DETECTION_SLOPE_MAX_WINDOW_US (DATA_HANDLER_SLOPE_MAX_WINDOW_US) // us, window time
@@ -295,7 +295,7 @@ bool sense = false;
 bool press = false;
 bool release = false;
 uint8_t fingerSensing;
-uint8_t fingersDriving[5] = {0, 1, 6, 6, 6};
+uint8_t fingersDriving[5] = {0, 0, 0, 0, 0};
 
 static int advSensingBos1901_DacHsIncrement(uint8_t channel, uint8_t dachsInc);
 static int advSensingBos1901_Register_Init(uint8_t channel);
@@ -422,6 +422,7 @@ static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float v
         float offset = (vMax + vMin)/2;
         uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
         uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
+        // uint16_t nbrOfSamplePerCycle = 1;
         double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
         float phaseShift;
         uint16_t endVal;
@@ -456,8 +457,11 @@ static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float v
     else {
         float amplitude = (vMax - vMin)/2;
         float offset = (vMax + vMin)/2;
-        uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
+        // uint16_t samplingRateHz = PLAY_SAMPLING_RATE ;
+        uint16_t samplingRateHz = 500;
+        
         uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
+        // uint16_t nbrOfSamplePerCycle = 1;
         double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
         float phaseShift;
         uint16_t endVal;

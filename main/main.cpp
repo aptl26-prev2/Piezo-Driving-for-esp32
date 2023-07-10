@@ -27,6 +27,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
+#include <vector>
+#include <iostream>
 
 #include "example.h"
 // #include 
@@ -692,165 +694,32 @@ void assert_failed(uint8_t *file, uint32_t line)
   */
 
 
+const int MAX_JSONS = 10;
 
- //* Experiments for driving
-static int16_t advSensingVolt2Amplitude(float volt)
-{
-    int16_t amplitude = volt*2047/3.6/31;
+void splitAndParseJsons(const std::string& str, rapidjson::Document (&docs)[MAX_JSONS]) {
+    std::size_t prev = 0, pos = 0;
+    int i = 0;
 
-    return amplitude & 0x0FFF;
-}
-static uint8_t advSensingGetFifoSpace(uint8_t channel)
-{
-    uint8_t fifospace = 0;
-    uint16_t wReg = 0;
+    while ((pos = str.find("}{", prev)) != std::string::npos && i < MAX_JSONS) {
+        std::string jsonString = str.substr(prev, pos-prev+1);
+        prev = pos + 1;
 
-    //Set up broadcast to read IC_STATUS
-    wReg = 0x5617;
-    spiReadWriteReg(channel, wReg);  // Set BC = IC_STATUS
-	timeWaitUs(10);
-	wReg = 0xC000;
-	uint16_t ic_status_reg = spiReadWriteReg(channel, wReg); // dummy write, get IC_STATUS value
-	fifospace = ic_status_reg & 0x7F; // extract EMPTY & FIFO_SPACE value.
-
-    return fifospace;
-}
-static void advSensingWaitFifoEmpty(uint8_t channel)
-{
-    bool fifoempty = 0;
-    uint16_t wReg = 0;
-
-    //Set up broadcast to read IC_STATUS
-    wReg = 0x5617;
-    spiReadWriteReg(channel, wReg);  // Set BC = IC_STATUS
-
-    // loop until FIFO is empty
-    while(!fifoempty)
-    {
-        timeWaitUs(10);
-        wReg = 0xC000;
-        uint16_t ic_status_reg = spiReadWriteReg(channel, wReg); // dummy write, get IC_STATUS value
-        fifoempty = (ic_status_reg >> 6) & 0x1; // extract EMPTY value.
-    }
-}
-
-static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float vMax, float vMin, uint16_t freq, uint8_t cycles)
-{
-    float amplitude = (vMax - vMin)/2;
-    float offset = (vMax + vMin)/2;
-    uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
-    uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
-    double theta0 = 2 * M_PI / nbrOfSamplePerCycle;
-    float phaseShift;
-    uint16_t endVal;
-    
-    // calculate phase
-    if (vMin >= 0)
-    {
-        phaseShift = -M_PI;
-        endVal = REFERENCE_MINUS_1LSB;
-    }
-    else if (vMax <= 0)
-    {
-        phaseShift = 0;
-        endVal = REFERENCE_PLUS_1LSB;
-    }
-    else
-    {
-        phaseShift = -M_PI - acosf(fabsf(offset) / amplitude);
-        endVal = fabsf(vMax) > fabsf(vMin) ? REFERENCE_MINUS_1LSB : REFERENCE_PLUS_1LSB;
+        docs[i].Parse(jsonString.c_str());
+        i++;
     }
 
-    *size = nbrOfSamplePerCycle * cycles;
-    for(uint16_t i = 0; i < *size; i++)
-    {
-        table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
-    }
-    // ending value
-    (*size)++;
-    table[(*size)-1] = endVal;
-}
-
-static bool advSensingPlayWaveformNonBlocking(uint8_t channel, uint16_t* waveform, uint16_t size)
-{
-	bool res = false;
-
-	// first entry
-	if(index_b == 0)
-	{
-	    advSensingWaitFifoEmpty(channel); // wait until BOS1901 internal FIFO is empty before sending the waveform to make sure we can write 64 points.
-	    spiReadWriteReg(channel, 0x77E7);  // set SENSE = 0 to drive the output
-	}
-
-    // fill FIFO with table values, wait if more than 64 points sent
-	uint16_t fifospace = advSensingGetFifoSpace(channel);
-
-    // waveform all programmed
-    if(index_b == size)
-    {
-    	// waveform finished playing
-    	if(fifospace == MAX_FIFO_SPACE)
-    	{
-            index_b = 0;
-            res = true;
-    	}
-    }
-    else
-    {
-    	uint16_t sendSize = fifospace <= (size - index_b) ? fifospace : (size - index_b);
-
-    	for(int8_t i = 0; i < sendSize; i++)
-    	{
-        	spiReadWriteReg(channel, waveform[index_b]);
-        	index_b++;
-    	}
-    }
-
-    return res;
-}
-
-void driving_test(void) {
-  //  software reset
-     spiReadWriteReg(0, 0x5427);
-
-    uint16_t press_waveform[1024];
-    uint16_t press_waveform_size;
-    uint16_t press_stab_waveform[1024];   // Press stabilization waveform data points
-  	uint16_t press_stab_waveform_size;         
-    uint16_t relaxTimeStartUs = 0 ;
-    advSensingCalculateWaveform(press_waveform, &press_waveform_size, 90, -10, 500, 10);
-    advSensingCalculateWaveform(press_stab_waveform, &press_stab_waveform_size, 0, -5, 500, 1);
-    advSensingPlayWaveformNonBlocking(0, press_waveform, press_waveform_size);
-    if(relaxTimeStartUs == 0)
-    {
-      // waveform done
-      if(advSensingPlayWaveformNonBlocking(0, press_stab_waveform, press_stab_waveform_size))
-      {
-          // disable then enable output (avoid zero-crossing potential issue)
-          spiReadWriteReg(0, 0x5687); // disable output
-          spiReadWriteReg(0, 0x77E7 | SUP_RISE_SENSE_BIT_ON); // SENSE = 1,VDD = 11111,TI_RISE = 0x27
-          spiReadWriteReg(0, SENSING_RELEASE_DETECT_VAL);  // write 0x0001 to set the bridge to positive polarity
-          spiReadWriteReg(0, 0x5697); // enable output
-
-          relaxTimeStartUs = timeGetUsCounter();
-      }
-    }
-    // wait relaxation time
-    else
-    {
-      if(timeGetUsCounter() > relaxTimeStartUs + PIEZO_RELAXATION_TIME_SENSING_SETUP_MS*1000)
-      {
-        relaxTimeStartUs = 0;
-        // advSensingNextState(channel); // to go next phase
-      }
-    }
-  
+    // Last JSON object
+    std::string jsonString = str.substr(prev, std::string::npos);
+    docs[i].Parse(jsonString.c_str());
 }
 
 void stop () {
   check = true;
   st = true;
   sense = false;
+  for (int i = 0; i < sizeof(fingersDriving); i++) {
+        fingersDriving[i] = 0;
+  }
 }
 
 bool arrayIsAllZeros(uint8_t array[], int size) {
@@ -861,6 +730,28 @@ bool arrayIsAllZeros(uint8_t array[], int size) {
     }
     return true;
 }
+
+// std::vector<rapidjson::Document> splitAndParseJsons(const std::string& str) {
+//     std::vector<rapidjson::Document> docs;
+//     std::size_t prev = 0, pos = 0;
+
+//     while ((pos = str.find("}{", prev)) != std::string::npos) {
+//         std::string jsonString = str.substr(prev, pos-prev+1);
+//         prev = pos + 1;
+
+//         rapidjson::Document d;
+//         d.Parse(jsonString.c_str());
+//         docs.push_back(d);
+//     }
+
+//     // Last JSON object
+//     std::string jsonString = str.substr(prev, std::string::npos);
+//     rapidjson::Document d;
+//     d.Parse(jsonString.c_str());
+//     docs.push_back(d);
+
+//     return docs;
+// }
 
 
 void callFunctionBasedOnJson(const std::string& json) {
@@ -878,19 +769,22 @@ void callFunctionBasedOnJson(const std::string& json) {
       printf("d isn't an object\n");
     }
 
-
     if (d.HasMember("functionName") && d["functionName"].IsString()) {
         std::string functionName = d["functionName"].GetString();
-        printf("inside functionName\n\n");
+        // printf("inside functionName\n\n");
 
         if (functionName == "drive" && d.HasMember("args") && d["args"].IsArray()) {
+
             const rapidjson::Value& args = d["args"];
             if (args.Size() == 3 && args[0].IsInt() && args[1].IsInt() && args[2].IsString()) {
                 std::string waveformTypeString = args[2].GetString();
                 if (waveformTypeMap.count(waveformTypeString) > 0) {
+                    int64_t timeBeforeDrive = esp_timer_get_time();
                     drive(args[0].GetUint(), args[1].GetUint(), waveformTypeMap[waveformTypeString]);
+                    printf("Drive: %lld\n\n", esp_timer_get_time() - timeBeforeDrive);  
                 }
             }
+
 
             if (d.HasMember("fingerToActivate") && d["fingerToActivate"].IsInt()) {
                 int fingerToActivate = d["fingerToActivate"].GetInt();
@@ -921,6 +815,10 @@ void callFunctionBasedOnJson(const std::string& json) {
           first = false;
           check = false; 
           st = false;
+          for (int i = 0; i < 2; i++) {
+              fingersDriving[i] = 1;
+          }
+          drive(500, 1, SINE);
         }
     }
 }
@@ -933,24 +831,63 @@ void callFunctionBasedOnJson(const std::string& json) {
 void bt_read_send(void) {
   int i = 0;
   check = true;
+  BTSerial.setTimeout(5);
   while (true) {
     // printf("inside outer while; \n");
+    int64_t timeBeforeAvailable = esp_timer_get_time();
     if (BTSerial.available()) {
-      String data = BTSerial.readStringUntil('\n');
+
+      int64_t timeBeforeUntil = esp_timer_get_time();
+
+      String data = BTSerial.readStringUntil('}');
       
-      printf("\n\n\nReciecve: %s\n", data.c_str());
-      callFunctionBasedOnJson(data.c_str());
+      printf("timeBeforeUntil: %lld\n\n", esp_timer_get_time() - timeBeforeUntil);
+
+      int64_t timeBeforeTrim = esp_timer_get_time();
+
+      data.trim();
+
+      printf("timeBeforeTrim: %lld\n\n", esp_timer_get_time() - timeBeforeTrim);
+      // printf("\n\n\nData before: %s\n", data.c_str());
+    // // Include the delimiter character in the received string
+      // if (BTSerial.peek() == '}') {
+      //   data += BTSerial.read();
+      // }
+
+      int64_t timeBeforeIf = esp_timer_get_time();
+
+      if (data != "")
+      {
+        data += "}";
+        // printf("\n\n\nData after: %s\n", data.c_str());
+        printf("\n\ninsideif\n\n");
+        callFunctionBasedOnJson(data.c_str());
+      }
+
+
+      printf("timeBeforeIf: %lld\n\n", esp_timer_get_time() - timeBeforeIf);
+
+      
+      printf("\n\nReciecve: %s\n\n", data.c_str());
+      
     }
     
     else if (!st) { //st stands for stop
       check = false;
     }
 
+    printf("BT available: %lld\n\n", esp_timer_get_time() - timeBeforeAvailable);
+
+    int64_t timeBeforeInner = esp_timer_get_time();
     while (!check && !first) {
-      printf("inside inner while; \n");
+      // printf("inside inner while; \n");
       advSensingExecuteSensing();
       vTaskDelay(1);
     } 
+
+    printf("Inner while: %lld\n\n", esp_timer_get_time() - timeBeforeInner);
+
+    int64_t timeBeforePress = esp_timer_get_time();
 
     if (press) {
       char str[40];
@@ -966,10 +903,11 @@ void bt_read_send(void) {
       release = false;
     }
 
-    if (i % 20000 == 0) 
+    if (i % 10 == 0) 
     {
-      // BTSerial.println("message sent from esp\n");
+      BTSerial.println("message sent from esp\n");
     }
+    printf("press release: %lld\n\n", esp_timer_get_time() - timeBeforePress);
 
     i++;
     vTaskDelay(1);
@@ -1075,3 +1013,7 @@ void app_main(void)
 // use the bluetooth serial app to time each send and receive time and then use
 // a timer inside esp32 to find what block of code is taking too much time
 // In addition, consider changing the fingers before calling drive in the json
+// note that for sensing right now where limiting the loop to 2 instead of all fingers so that no errors happen
+// Most of the delay is caused by the time to calculate waveforms, the size of the array is bigger for lower frequencies and is taking more time to calcuare
+// The higher the frequency, the lower the number of sample per cycle is, the smaller the array is
+// It takes more time to vibrate after waiting a while because bluetooth enters mode 2 which means it's in stand by mode
