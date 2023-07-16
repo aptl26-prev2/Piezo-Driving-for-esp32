@@ -58,19 +58,19 @@ WaveformType waveform;
 //Channels
 #define BOS1901_CHANNEL_A   (0)
 #define BOS1901_CHANNEL_B   (1)
-#define NB_CHANNELS (2)
+#define NB_CHANNELS (3)
 
 // Application
 #define SENSING_SAMPLING_RATE		(ADVSENSING_SAMPLING_PERIOD)
 // #define SIG_SIZE_MAX             	(1024) // Maximum waveform table size
-#define SIG_SIZE_MAX             	(1024 * 4) // Maximum waveform table size
+#define SIG_SIZE_MAX             	(1024) // Maximum waveform table size
 #define DATA_HANDLER_SLOPE_MAX_WINDOW_US  (6250) // us, Slope averaging window duration
 #define DATA_HANDLER_SLOPE_MAX_WINDOW_SIZE  (DATA_HANDLER_SLOPE_MAX_WINDOW_US * SENSING_SAMPLING_RATE / 1000000) // Cycles, Slope averaging window size
 #define DATA_HANDLER_SLOPE_DELTATIME_US      (1000000/SENSING_SAMPLING_RATE) // us, time between slope values
 #define VFEEDBACK_AVERAGE_SAMPLING 	(10) // number of values averaged when capturing VFEEDBACK
 
 // Press feedback waveform
-#define PRESS_SIG_VOLTAGE_MAX       (60.0) // V (bipolar amplitude)
+#define PRESS_SIG_VOLTAGE_MAX       (15.0) // V (bipolar amplitude)
 #define PRESS_SIG_VOLTAGE_MIN       (-10.0f) // V (bipolar amplitude)
 #define PRESS_SIG_FREQ              (frequency) // Hz
 #define PRESS_SIG_CYCLE             (1) // warning : SIG_SIZE_MAX might need to be increased
@@ -95,7 +95,7 @@ WaveformType waveform;
 // Press sensing parameters : detection successful if : (value1 AND slode) OR value2
 //// value1 : value threshold detection
 #define PRESS_DETECTION_VALUE1_ENABLED 		(true)
-#define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.2f) // V
+#define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.15f) // V
 #define PRESS_DETECTION_VALUE1_HOLDTIME_US 	(0) // us
 #define PRESS_DETECTION_VALUE1_HOLDTIME 	(PRESS_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
@@ -114,18 +114,18 @@ WaveformType waveform;
 // Release sensing parameters : detection successful if : (value1 AND slode) OR value2
 //// value1 : value threshold detection
 #define RELEASE_DETECTION_VALUE1_ENABLED    (false)
-#define RELEASE_DETECTION_VALUE1_THRESHOLD 	(0.25f) // V
+#define RELEASE_DETECTION_VALUE1_THRESHOLD 	(0.1f) // V
 #define RELEASE_DETECTION_VALUE1_HOLDTIME_US 	(0) // us
 #define RELEASE_DETECTION_VALUE1_HOLDTIME 	(RELEASE_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
 #define RELEASE_DETECTION_SLOPE_ENABLED 	(true)
 #define RELEASE_DETECTION_SLOPE_THRESHOLD 	(1000) // uV/ms
-#define RELEASE_DETECTION_SLOPE_HOLDTIME_US (8000) // us
+#define RELEASE_DETECTION_SLOPE_HOLDTIME_US (2000) // us
 #define RELEASE_DETECTION_SLOPE_HOLDTIME    (RELEASE_DETECTION_SLOPE_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
-#define RELEASE_DETECTION_SLOPE_MAX_WINDOW_US (DATA_HANDLER_SLOPE_MAX_WINDOW_US) // us, window time
+#define RELEASE_DETECTION_SLOPE_MAX_WINDOW_US (DATA_HANDLER_SLOPE_MAX_WINDOW_US) // us, window time OK you know it's admit it's up on but I need to like in Nicholasville Bluetooth so first and now OK so it's also stuck on the release Cantore what if we did .1.1
 #define RELEASE_DETECTION_SLOPE_WINDOW_SIZE (RELEASE_DETECTION_SLOPE_MAX_WINDOW_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// value2 : value threshold detection
-#define RELEASE_DETECTION_VALUE2_ENABLED 	(true)
+#define RELEASE_DETECTION_VALUE2_ENABLED 	(false)
 #define RELEASE_DETECTION_VALUE2_THRESHOLD 	(0.109f*1.5)
 #define RELEASE_DETECTION_VALUE2_HOLDTIME_US 	(125) // us
 #define RELEASE_DETECTION_VALUE2_HOLDTIME 	(RELEASE_DETECTION_VALUE2_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
@@ -251,6 +251,21 @@ typedef struct {
 ********************************************************/
 
 // bos1901 initialization values
+// Bos1901 bos1901[NB_CHANNELS] = {
+// 	{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHA
+// 	},{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHB
+// 	}
+// };
 Bos1901 bos1901[NB_CHANNELS] = {
 	{
 		.state = SensingState_A_init,
@@ -264,6 +279,12 @@ Bos1901 bos1901[NB_CHANNELS] = {
 		.release_waveform_size = 0,
 		.relaxTimeStartUs = 0,
 		.led = LEDEX_CHB
+	},{
+		.state = SensingState_A_init,
+		.press_waveform_size = 0,
+		.release_waveform_size = 0,
+		.relaxTimeStartUs = 0,
+		.led = LEDEX_CHA
 	}
 };
 // static Bos1901 bos1901[NB_CHANNELS] = {
@@ -417,8 +438,10 @@ static float advSensingVfeedback2Volt(int16_t vfeedback)
 static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float vMax, float vMin, uint16_t freq, uint8_t cycles, WaveformType waveformType)
 {
     if (sense) {
-        freq = 500;
-        float amplitude = (vMax - vMin)/2;
+        // freq = 500;
+        float max = vMax;
+        float min = vMin;
+        float amplitude = (vMax - vMin)/ 2 ;
         float offset = (vMax + vMin)/2;
         uint16_t samplingRateHz = PLAY_SAMPLING_RATE;
         uint16_t nbrOfSamplePerCycle = round(samplingRateHz / (float) freq);
@@ -445,9 +468,45 @@ static void advSensingCalculateWaveform(uint16_t* table, uint16_t* size, float v
         }
 
         *size = nbrOfSamplePerCycle * cycles;
-        for(uint16_t i = 0; i < *size; i++)
-        {
-            table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+        // for(uint16_t i = 0; i < *size; i++)
+        // {
+        //     table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+        // }
+        if (vMax != 0.0) {
+            for(uint16_t i = 0; i < *size; i++)
+                {
+                    if (i > 10) {
+                        table[i] = advSensingVolt2Amplitude( (max - min) / 2 * 1 + (max + min)/2 );
+                    }
+                    else {
+                        table[i] = advSensingVolt2Amplitude( (max - min) / 2 * i * 0.1 + (max + max)/2 );
+                    }
+                // table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+
+                }
+        }
+
+        else {
+            // for(uint16_t i = *size; i > 0; i--)
+            //     {
+            //         if (i > 10) {
+            //             table[i] = advSensingVolt2Amplitude( (max - min) / 2 * 1 + (max + min)/2 );
+            //         }
+            //         else {
+            //             table[i] = advSensingVolt2Amplitude( (max - min) / 2 * i * 0.1 + (max + max)/2 );
+            //         }
+            //     // table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+
+            //     }
+
+
+
+
+            for(uint16_t i = 0; i < *size; i++)
+                {
+                table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * cos((double)(theta0*i + phaseShift)) + (vMax + vMin)/2 );
+                // table[i] = advSensingVolt2Amplitude( (vMax - vMin) / 2 * 1 + (vMax + vMin)/2 );
+                }
         }
         // ending value
         (*size)++;
@@ -747,13 +806,14 @@ static void advSensingPressFeedback(uint8_t channel)
 {
 	if(advSensingPlayWaveformNonBlocking(channel, bos1901[channel].press_waveform, bos1901[channel].press_waveform_size))
 		advSensingNextState(channel); // to go next phase
+    // advSensingNextState(channel);
 }
 
 // Phases D - Press Creep Stabilization
 // Single entry function - executed once when called
 static void advSensingPressCreepStabilization(uint8_t channel)
 { 
-    // printf("\n\n\n\n inside stabilize \n\n\n");
+    printf("\n\n\n\n inside stabilize \n\n\n");
 	// first entry - play waveform
 	if(bos1901[channel].relaxTimeStartUs == 0)
 	{
@@ -778,6 +838,7 @@ static void advSensingPressCreepStabilization(uint8_t channel)
 			advSensingNextState(channel); // to go next phase
 		}
 	}
+    // advSensingNextState(channel);
 }
 
 // Entering Phase E - Release Sensing Setup
@@ -835,6 +896,7 @@ static void advSensingReleaseFeedback(uint8_t channel)
 {
 	if(advSensingPlayWaveformNonBlocking(channel, bos1901[channel].release_waveform, bos1901[channel].release_waveform_size))
 		advSensingNextState(channel); // to go next phase
+    // advSensingNextState(channel);
 }
 
 // Phases G - Release Creep Stabilization
@@ -865,6 +927,7 @@ static void advSensingReleaseCreepStabilization(uint8_t channel)
 			advSensingNextState(channel); // to go next phase
 		}
 	}
+    // advSensingNextState(channel);
 }
 
 // Enter selected phase

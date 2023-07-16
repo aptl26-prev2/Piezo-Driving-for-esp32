@@ -137,6 +137,10 @@ esp_timer_handle_t htim2;
 #define SUP_RISE_SENSE_BIT_ON  (0x1 << 11)
 #define SENSING_RELEASE_DETECT_VAL	    (REFERENCE_MINUS_1LSB) // REFERENCE CODE
 #define PIEZO_RELAXATION_TIME_SENSING_SETUP_MS  (20) 
+
+
+
+
 #define NB_CHANNELS (2)
 
 uint16_t index_b;
@@ -866,10 +870,10 @@ void callFunctionBasedOnJson(const std::string& json) {
           first = false;
           check = false; 
           st = false;
-          for (int i = 0; i < 2; i++) {
+          for (int i = 0; i < NB_CHANNELS; i++) {
               fingersDriving[i] = 1;
           }
-          drive(500, 1, SINE);
+          drive(50, 1, SINE);
         }
     }
 }
@@ -881,12 +885,12 @@ void callFunctionBasedOnJson(const std::string& json) {
 
 void bt_read_send(void) {
   printf("\n\ninside bt_read_send\n\n");
-  for (uint8_t i = 0; i < NB_CHANNELS; i++)
-  {
+  // for (uint8_t i = 0; i < NB_CHANNELS; i++)
+  // {
     
-    advSensingInit(i);
+  //   advSensingInit(i);
     
-  }
+  // }
   int i = 0;
   check = true;
   BTSerial.setTimeout(5);
@@ -963,7 +967,7 @@ void bt_read_send(void) {
 
     if (i % 10 == 0) 
     {
-      BTSerial.println("message sent from esp\n");
+      printf("\n\n Heap free memory: %i", esp_get_free_heap_size());
     }
     // printf("press release: %lld\n\n", esp_timer_get_time() - timeBeforePress);
 
@@ -1079,3 +1083,4 @@ void app_main(void)
 // The higher the frequency, the lower the number of sample per cycle is, the smaller the array is
 // It takes more time to vibrate after waiting a while because bluetooth enters mode 2 which means it's in stand by mode
 // Right now, init only works for two fingers because it's hardcoded for two fingers
+// Changing #define SIG_SIZE_MAX from (1024 * 4) to (1024) signficantly reduced memory usage
