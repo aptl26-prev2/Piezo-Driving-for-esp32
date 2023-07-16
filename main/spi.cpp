@@ -29,13 +29,6 @@
 #include "driver/spi_master.h"
 
 #define SPI_HOST    HSPI_HOST //Define the SPI host to be HSPI
-#define DMA_CHAN    2 //Define the DMA channel to be 2
-
-#define PIN_NUM_MOSI 12 //Define the GPIO number for MOSI pin
-#define PIN_NUM_MISO 13 //Define the GPIO number for MISO pin
-#define PIN_NUM_CLK  14 //Define the GPIO number for SCLK pin
-#define PIN_NUM_CS0  15 //Define the GPIO number for CS0 pin
-#define PIN_NUM_CS1   6 //Define the GPIO number for CS1 pin
 
 // board channel A
 // #define SS0_PORT (GPIOA)
@@ -45,6 +38,8 @@
 // #define SS1_PIN  (SS1_Pin)
 #define CS_PIN1 GPIO_NUM_4
 #define CS_PIN2 GPIO_NUM_16
+#define CS_PIN3 GPIO_NUM_15
+#define CS_PIN4 GPIO_NUM_32
 
 /********************************************************
 *				 FUNCTIONS DEFINTION
@@ -54,6 +49,8 @@ extern SPIClass * hspi1;
 extern SPIClass * hspi4;
 extern spi_device_handle_t spi0;
 extern spi_device_handle_t spi1;
+extern spi_device_handle_t spi2;
+extern spi_device_handle_t spi3;
 
 static const int spiClk = 12*1000*1000;
 // spi_device_handle_t spi0;
@@ -66,7 +63,7 @@ static const int spiClk = 12*1000*1000;
 uint16_t spiReadWriteReg(uint8_t chipSelect, uint16_t data)
 {
 	spi_device_handle_t spiHandle = spi0; //Declare a handle for the selected SPI device
-gpio_set_level(CS_PIN2, 1); 
+	gpio_set_level(CS_PIN2, 1); 
 
 	uint16_t DataSend = SPI_SWAP_DATA_TX(data, 16); //Swap and copy the data to be sent to a local variable
 
@@ -75,11 +72,17 @@ gpio_set_level(CS_PIN2, 1);
 	esp_err_t ret;
 	switch(chipSelect) //Select which SPI device to use based on chip select parameter
 	{
-		case 0:
+		case 2:
 			spiHandle = spi0; //Use chip select 0 device handle
 			break;
-		case 1:
+		case 3:
 			spiHandle = spi1; //Use chip select 1 device handle
+			break;
+		case 0:
+			spiHandle = spi2; //Use chip select 2 device handle
+			break;
+		case 1:
+			spiHandle = spi3; //Use chip select 2 device handle
 			break;
 		default:
 			spiHandle = spi0; //Use chip select 0 device handle by default

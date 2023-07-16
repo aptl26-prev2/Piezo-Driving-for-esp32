@@ -93,9 +93,11 @@ esp_timer_handle_t htim2;
 
 #define CS_PIN1 GPIO_NUM_4
 #define CS_PIN2 GPIO_NUM_16
+#define CS_PIN3 GPIO_NUM_15
+#define CS_PIN4 GPIO_NUM_32
 
-#define SPI_HOST    HSPI_HOST //Define the SPI host to be HSPI
-#define DMA_CHAN    2 //Define the DMA channel to be 2
+#define VSPI_DMA_CHAN    1 //Define the DMA channel to be 2
+#define HSPI_DMA_CHAN    2 //Define the DMA channel to be 2
 
 // #define PIN_NUM_MOSI 23 //Define the GPIO number for MOSI pin
 // #define PIN_NUM_MISO 19 //Define the GPIO number for MISO pin
@@ -109,7 +111,7 @@ esp_timer_handle_t htim2;
   #define VSPI_MISO   19
   #define VSPI_MOSI   18
   #define VSPI_SCLK   17
-  #define VSPI_SS     16
+  #define VSPI_SS     15
 
   #define HSPI_MISO   13
   #define HSPI_MOSI   12
@@ -135,11 +137,14 @@ esp_timer_handle_t htim2;
 #define SUP_RISE_SENSE_BIT_ON  (0x1 << 11)
 #define SENSING_RELEASE_DETECT_VAL	    (REFERENCE_MINUS_1LSB) // REFERENCE CODE
 #define PIEZO_RELAXATION_TIME_SENSING_SETUP_MS  (20) 
+#define NB_CHANNELS (2)
 
 uint16_t index_b;
 
 spi_device_handle_t spi0;
 spi_device_handle_t spi1;
+spi_device_handle_t spi2;
+spi_device_handle_t spi3;
 
 
 /********************************************************
@@ -150,6 +155,7 @@ volatile uint64_t timerCurrPeriod = 0;
 volatile uint64_t timer2NewPeriod = 0;
 bool first = true;
 bool st = false;
+// static void advSensingInit(uint8_t channel);
 
 
 void HAL_TIM_PeriodElapsedCallback(void* arg);
@@ -306,7 +312,7 @@ static void MX_SPI1_Init(void)
   //!New spi library
   static const int spiClk = 12*1000*1000;
   // static const int spiClk = 20*1000*1000;
-  spi_bus_config_t buscfg={
+  spi_bus_config_t buscfg1={
     .mosi_io_num=HSPI_MOSI, //Set the MOSI pin number
     .miso_io_num=HSPI_MISO, //Set the MISO pin number
     .sclk_io_num=HSPI_SCLK, //Set the SCLK pin number
@@ -324,7 +330,7 @@ static void MX_SPI1_Init(void)
 
   spi_device_interface_config_t devcfg1={
     .mode=0,                                //Set the SPI mode to 0
-    .clock_speed_hz= spiClk,           //Set the clock speed to 10 MHz
+    .clock_speed_hz= spiClk,           //Set the clock speed to 12 MHz
     .spics_io_num=CS_PIN2,              //Set the CS pin number for chip select 0
     .queue_size=7,                          //Set the queue size to 7
   };
@@ -332,10 +338,10 @@ static void MX_SPI1_Init(void)
   // spi_device_handle_t spi0;
   //Initialize the SPI devices
   gpio_set_level(CS_PIN2, 1); 
-  esp_err_t ret=spi_bus_initialize(SPI_HOST, &buscfg, DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
+  esp_err_t ret=spi_bus_initialize(HSPI_HOST, &buscfg1, HSPI_DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
   assert(ret==ESP_OK); //Check if the initialization was successful
-  ret=spi_bus_add_device(SPI_HOST, &devcfg0, &spi0); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
-  ret=spi_bus_add_device(SPI_HOST, &devcfg1, &spi1); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  ret=spi_bus_add_device(HSPI_HOST, &devcfg0, &spi0); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  ret=spi_bus_add_device(HSPI_HOST, &devcfg1, &spi1); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
   assert(ret==ESP_OK); //Check if adding device was successful
 
   
@@ -387,6 +393,50 @@ static void MX_SPI4_Init(void)
 
 
 // //!New spi library
+  //!New spi library
+  static const int spiClk = 12*1000*1000;
+  // static const int spiClk = 20*1000*1000;
+  spi_bus_config_t buscfg2={
+    .mosi_io_num=VSPI_MOSI, //Set the MOSI pin number
+    .miso_io_num=VSPI_MISO, //Set the MISO pin number
+    .sclk_io_num=VSPI_SCLK, //Set the SCLK pin number
+    .quadwp_io_num=-1, //Set the QUADWP pin number to -1 (not used)
+    .quadhd_io_num=-1, //Set the QUADHD pin number to -1 (not used)
+    .max_transfer_sz=0 //Set the maximum transfer size in bytes
+  };
+
+  spi_device_interface_config_t devcfg2={
+    .mode=0,                                //Set the SPI mode to 0
+    .clock_speed_hz= spiClk,           //Set the clock speed to 10 MHz
+    .spics_io_num=CS_PIN3,              //Set the CS pin number for chip select 0
+    .queue_size=7,                          //Set the queue size to 7
+  };
+
+  spi_device_interface_config_t devcfg3={
+    .mode=0,                                //Set the SPI mode to 0
+    .clock_speed_hz= spiClk,           //Set the clock speed to 12 MHz
+    .spics_io_num=CS_PIN4,              //Set the CS pin number for chip select 0
+    .queue_size=7,                          //Set the queue size to 7
+  };
+
+  // spi_device_handle_t spi0;
+  //Initialize the SPI devices
+  gpio_set_level(CS_PIN2, 1); 
+  esp_err_t ret=spi_bus_initialize(VSPI_HOST, &buscfg2, VSPI_DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
+  assert(ret==ESP_OK); //Check if the initialization was successful
+  ret=spi_bus_add_device(VSPI_HOST, &devcfg2, &spi2); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  ret=spi_bus_add_device(VSPI_HOST, &devcfg3, &spi3); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  assert(ret==ESP_OK); //Check if adding device was successful
+
+  
+
+
+
+
+
+
+
+
 //   static const int spiClk = 12*1000*1000;
 //   // static const int spiClk = 20*1000*1000;
 //   spi_bus_config_t buscfg={
@@ -761,7 +811,8 @@ void callFunctionBasedOnJson(const std::string& json) {
     std::map<std::string, WaveformType> waveformTypeMap = {
         {"SINE", SINE},
         {"SQUARE", SQUARE},
-        {"TRIANGLE", TRIANGLE}
+        {"TRIANGLE", TRIANGLE},
+        {"SAWTOOTH", SAWTOOTH}
         // Add more mappings here...
     };
 
@@ -825,10 +876,17 @@ void callFunctionBasedOnJson(const std::string& json) {
 
 
  void bt_setup(void) {
-  BTSerial.begin("HC-05");
+  BTSerial.begin("HC-06");
 }
 
 void bt_read_send(void) {
+  printf("\n\ninside bt_read_send\n\n");
+  for (uint8_t i = 0; i < NB_CHANNELS; i++)
+  {
+    
+    advSensingInit(i);
+    
+  }
   int i = 0;
   check = true;
   BTSerial.setTimeout(5);
@@ -841,13 +899,13 @@ void bt_read_send(void) {
 
       String data = BTSerial.readStringUntil('}');
       
-      printf("timeBeforeUntil: %lld\n\n", esp_timer_get_time() - timeBeforeUntil);
+      // printf("timeBeforeUntil: %lld\n\n", esp_timer_get_time() - timeBeforeUntil);
 
       int64_t timeBeforeTrim = esp_timer_get_time();
 
       data.trim();
 
-      printf("timeBeforeTrim: %lld\n\n", esp_timer_get_time() - timeBeforeTrim);
+      // printf("timeBeforeTrim: %lld\n\n", esp_timer_get_time() - timeBeforeTrim);
       // printf("\n\n\nData before: %s\n", data.c_str());
     // // Include the delimiter character in the received string
       // if (BTSerial.peek() == '}') {
@@ -860,15 +918,15 @@ void bt_read_send(void) {
       {
         data += "}";
         // printf("\n\n\nData after: %s\n", data.c_str());
-        printf("\n\ninsideif\n\n");
+        // printf("\n\ninsideif\n\n");
         callFunctionBasedOnJson(data.c_str());
       }
 
 
-      printf("timeBeforeIf: %lld\n\n", esp_timer_get_time() - timeBeforeIf);
+      // printf("timeBeforeIf: %lld\n\n", esp_timer_get_time() - timeBeforeIf);
 
       
-      printf("\n\nReciecve: %s\n\n", data.c_str());
+      // printf("\n\nReciecve: %s\n\n", data.c_str());
       
     }
     
@@ -876,7 +934,7 @@ void bt_read_send(void) {
       check = false;
     }
 
-    printf("BT available: %lld\n\n", esp_timer_get_time() - timeBeforeAvailable);
+    // printf("BT available: %lld\n\n", esp_timer_get_time() - timeBeforeAvailable);
 
     int64_t timeBeforeInner = esp_timer_get_time();
     while (!check && !first) {
@@ -885,7 +943,7 @@ void bt_read_send(void) {
       vTaskDelay(1);
     } 
 
-    printf("Inner while: %lld\n\n", esp_timer_get_time() - timeBeforeInner);
+    // printf("Inner while: %lld\n\n", esp_timer_get_time() - timeBeforeInner);
 
     int64_t timeBeforePress = esp_timer_get_time();
 
@@ -907,7 +965,7 @@ void bt_read_send(void) {
     {
       BTSerial.println("message sent from esp\n");
     }
-    printf("press release: %lld\n\n", esp_timer_get_time() - timeBeforePress);
+    // printf("press release: %lld\n\n", esp_timer_get_time() - timeBeforePress);
 
     i++;
     vTaskDelay(1);
@@ -975,6 +1033,9 @@ void app_main(void)
 	// example();
   // drive(50, 1, SINE); // freq, cycles, waveformType
 
+  // setCpuFrequencyMhz(80);
+  // printf("\n\n Cpus speed: %i \n\n", getCpuFrequencyMhz());
+
   bt_setup();
   bt_read_send();
 
@@ -1017,3 +1078,4 @@ void app_main(void)
 // Most of the delay is caused by the time to calculate waveforms, the size of the array is bigger for lower frequencies and is taking more time to calcuare
 // The higher the frequency, the lower the number of sample per cycle is, the smaller the array is
 // It takes more time to vibrate after waiting a while because bluetooth enters mode 2 which means it's in stand by mode
+// Right now, init only works for two fingers because it's hardcoded for two fingers

@@ -307,7 +307,7 @@ static bool advSensingPlayWaveformNonBlocking(uint8_t channel, uint16_t* wavefor
 static void advSensingWaitFifoEmpty(uint8_t channel);
 static uint8_t advSensingGetFifoSpace(uint8_t channel);
 static void advSensingNextState(uint8_t channel);
-static void advSensingInit(uint8_t channel);
+void advSensingInit(uint8_t channel);
 static void advSensingPressSetup(uint8_t channel);
 static void advSensingPress(uint8_t channel);
 static void advSensingPressFeedback(uint8_t channel);
@@ -679,9 +679,10 @@ static void advSensingNextState(uint8_t channel)
 
 // Phase A - Sensing Initialization
 // Single entry function - executed once when called
-static void advSensingInit(uint8_t channel)
+void advSensingInit(uint8_t channel)
 {
     // ledExWrite(bos1901[channel].led, color_red); // show error.
+    printf("\n\n inside advSensingInit\n\n");
 
     advSensingBos1901_Register_Init(channel);
     advSensingGetSensingOffset(channel);
@@ -908,7 +909,7 @@ static void advSensingEnterPhase(uint8_t channel)
 
 
 // Executing sensing
-void advSensingExecuteSensing()
+void  advSensingExecuteSensing()
 {
     // Enters every time the 1kHz timer expires
     if(timeIsTimerExpired())

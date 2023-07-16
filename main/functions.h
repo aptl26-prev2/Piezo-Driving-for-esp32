@@ -14,6 +14,7 @@ typedef enum {
 } WaveformType;
 
 void advSensingExecuteSensing();
+void advSensingInit(uint8_t channel);
 
 extern bool check;
 extern bool sense;
