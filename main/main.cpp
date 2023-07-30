@@ -96,8 +96,8 @@ esp_timer_handle_t htim2;
 #define CS_PIN3 GPIO_NUM_15
 #define CS_PIN4 GPIO_NUM_32
 
-#define VSPI_DMA_CHAN    1 //Define the DMA channel to be 2
-#define HSPI_DMA_CHAN    2 //Define the DMA channel to be 2
+#define VSPI_DMA_CHAN    2 //Define the DMA channel to be 2
+#define HSPI_DMA_CHAN    1 //Define the DMA channel to be 2
 
 // #define PIN_NUM_MOSI 23 //Define the GPIO number for MOSI pin
 // #define PIN_NUM_MISO 19 //Define the GPIO number for MISO pin
@@ -113,7 +113,7 @@ esp_timer_handle_t htim2;
   #define VSPI_SCLK   17
   #define VSPI_SS     15
 
-  #define HSPI_MISO   13
+  #define HSPI_MISO   27
   #define HSPI_MOSI   12
   #define HSPI_SCLK   14
   #define HSPI_SS     4
@@ -130,18 +130,12 @@ esp_timer_handle_t htim2;
 #endif
 
 
-//* Experiments for driving
-#define MAX_FIFO_SPACE		(64)
-#define REFERENCE_PLUS_1LSB					(0x0001)
-#define REFERENCE_MINUS_1LSB				(0x0FFF)
-#define SUP_RISE_SENSE_BIT_ON  (0x1 << 11)
-#define SENSING_RELEASE_DETECT_VAL	    (REFERENCE_MINUS_1LSB) // REFERENCE CODE
-#define PIEZO_RELAXATION_TIME_SENSING_SETUP_MS  (20) 
 
 
 
 
-#define NB_CHANNELS (2)
+
+#define NB_CHANNELS (3)
 
 uint16_t index_b;
 
@@ -341,6 +335,7 @@ static void MX_SPI1_Init(void)
 
   // spi_device_handle_t spi0;
   //Initialize the SPI devices
+  gpio_set_level(CS_PIN1, 1); 
   gpio_set_level(CS_PIN2, 1); 
   esp_err_t ret=spi_bus_initialize(HSPI_HOST, &buscfg1, HSPI_DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
   assert(ret==ESP_OK); //Check if the initialization was successful
@@ -425,7 +420,8 @@ static void MX_SPI4_Init(void)
 
   // spi_device_handle_t spi0;
   //Initialize the SPI devices
-  gpio_set_level(CS_PIN2, 1); 
+  gpio_set_level(CS_PIN3, 1); 
+  gpio_set_level(CS_PIN4, 1); 
   esp_err_t ret=spi_bus_initialize(VSPI_HOST, &buscfg2, VSPI_DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
   assert(ret==ESP_OK); //Check if the initialization was successful
   ret=spi_bus_add_device(VSPI_HOST, &devcfg2, &spi2); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
@@ -822,6 +818,7 @@ void callFunctionBasedOnJson(const std::string& json) {
 
     if (!d.IsObject()) {
       printf("d isn't an object\n");
+      return;
     }
 
     if (d.HasMember("functionName") && d["functionName"].IsString()) {
@@ -862,10 +859,12 @@ void callFunctionBasedOnJson(const std::string& json) {
         } 
 
         else if (functionName == "stopSensing" ) {
+          printf("Stopped sensing mode\n");
           stop();
         } 
 
         else if (functionName == "sense") {
+          printf("Entered sensing mode\n");
           sense = true;
           first = false;
           check = false; 
@@ -880,21 +879,22 @@ void callFunctionBasedOnJson(const std::string& json) {
 
 
  void bt_setup(void) {
-  BTSerial.begin("HC-06");
+  BTSerial.begin("HC-05");
 }
 
 void bt_read_send(void) {
   printf("\n\ninside bt_read_send\n\n");
-  // for (uint8_t i = 0; i < NB_CHANNELS; i++)
-  // {
+  for (uint8_t i = 0; i < NB_CHANNELS; i++)
+  {
     
-  //   advSensingInit(i);
+    advSensingInit(i);
     
-  // }
+  }
   int i = 0;
   check = true;
   BTSerial.setTimeout(5);
   while (true) {
+    if (i == 1) printf("inside while \n");
     // printf("inside outer while; \n");
     int64_t timeBeforeAvailable = esp_timer_get_time();
     if (BTSerial.available()) {
@@ -923,6 +923,7 @@ void bt_read_send(void) {
         data += "}";
         // printf("\n\n\nData after: %s\n", data.c_str());
         // printf("\n\ninsideif\n\n");
+        printf("\n\nReciecve: %s\n\n", data.c_str());
         callFunctionBasedOnJson(data.c_str());
       }
 
@@ -930,7 +931,6 @@ void bt_read_send(void) {
       // printf("timeBeforeIf: %lld\n\n", esp_timer_get_time() - timeBeforeIf);
 
       
-      // printf("\n\nReciecve: %s\n\n", data.c_str());
       
     }
     
@@ -960,17 +960,24 @@ void bt_read_send(void) {
 
     if (release) {
       char str[40];
-      sprintf(str, "{\"release\": true, \"fingerSensing\": %u}", fingerSensing);
+      sprintf(str, "{\"press\": false, \"fingerSensing\": %u}", fingerSensing);
       BTSerial.println(str);
       release = false;
     }
 
     if (i % 10 == 0) 
     {
-      printf("\n\n Heap free memory: %i", esp_get_free_heap_size());
+      // printf("\n\n Heap free memory: %i", esp_get_free_heap_size());
+      // BTSerial.println("");d
     }
     // printf("press release: %lld\n\n", esp_timer_get_time() - timeBeforePress);
-
+    // if (i % 100 == 0) 
+    // {
+    //   // printf("\n\n Heap free memory: %i", esp_get_free_heap_size());
+    //   if (BTSerial.isConnected()) {
+    //     printf("Bluetooth connected\n");
+    //   }
+    // }
     i++;
     vTaskDelay(1);
   }

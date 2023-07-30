@@ -63,14 +63,14 @@ WaveformType waveform;
 // Application
 #define SENSING_SAMPLING_RATE		(ADVSENSING_SAMPLING_PERIOD)
 // #define SIG_SIZE_MAX             	(1024) // Maximum waveform table size
-#define SIG_SIZE_MAX             	(1024) // Maximum waveform table size
+#define SIG_SIZE_MAX             	(1024 * 2) // Maximum waveform table size
 #define DATA_HANDLER_SLOPE_MAX_WINDOW_US  (6250) // us, Slope averaging window duration
 #define DATA_HANDLER_SLOPE_MAX_WINDOW_SIZE  (DATA_HANDLER_SLOPE_MAX_WINDOW_US * SENSING_SAMPLING_RATE / 1000000) // Cycles, Slope averaging window size
 #define DATA_HANDLER_SLOPE_DELTATIME_US      (1000000/SENSING_SAMPLING_RATE) // us, time between slope values
 #define VFEEDBACK_AVERAGE_SAMPLING 	(10) // number of values averaged when capturing VFEEDBACK
 
 // Press feedback waveform
-#define PRESS_SIG_VOLTAGE_MAX       (15.0) // V (bipolar amplitude)
+#define PRESS_SIG_VOLTAGE_MAX       (60.0) // V (bipolar amplitude)
 #define PRESS_SIG_VOLTAGE_MIN       (-10.0f) // V (bipolar amplitude)
 #define PRESS_SIG_FREQ              (frequency) // Hz
 #define PRESS_SIG_CYCLE             (1) // warning : SIG_SIZE_MAX might need to be increased
@@ -95,7 +95,7 @@ WaveformType waveform;
 // Press sensing parameters : detection successful if : (value1 AND slode) OR value2
 //// value1 : value threshold detection
 #define PRESS_DETECTION_VALUE1_ENABLED 		(true)
-#define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.15f) // V
+#define PRESS_DETECTION_VALUE1_THRESHOLD 	(0.3f) // V
 #define PRESS_DETECTION_VALUE1_HOLDTIME_US 	(0) // us
 #define PRESS_DETECTION_VALUE1_HOLDTIME 	(PRESS_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
@@ -251,6 +251,15 @@ typedef struct {
 ********************************************************/
 
 // bos1901 initialization values
+// static Bos1901 bos1901[NB_CHANNELS] = {
+// 	{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHA
+// 	}
+// };
 // Bos1901 bos1901[NB_CHANNELS] = {
 // 	{
 // 		.state = SensingState_A_init,
@@ -287,8 +296,26 @@ Bos1901 bos1901[NB_CHANNELS] = {
 		.led = LEDEX_CHA
 	}
 };
-// static Bos1901 bos1901[NB_CHANNELS] = {
+// Bos1901 bos1901[NB_CHANNELS] = {
 // 	{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHA
+// 	},{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHB
+// 	},{
+// 		.state = SensingState_A_init,
+// 		.press_waveform_size = 0,
+// 		.release_waveform_size = 0,
+// 		.relaxTimeStartUs = 0,
+// 		.led = LEDEX_CHA
+// 	},{
 // 		.state = SensingState_A_init,
 // 		.press_waveform_size = 0,
 // 		.release_waveform_size = 0,
@@ -740,8 +767,8 @@ static void advSensingNextState(uint8_t channel)
 // Single entry function - executed once when called
 void advSensingInit(uint8_t channel)
 {
+    printf("advSensningInit\n\n");
     // ledExWrite(bos1901[channel].led, color_red); // show error.
-    printf("\n\n inside advSensingInit\n\n");
 
     advSensingBos1901_Register_Init(channel);
     advSensingGetSensingOffset(channel);
@@ -758,6 +785,7 @@ void advSensingInit(uint8_t channel)
 // Single entry function - executed once when called
 static void advSensingPressSetup(uint8_t channel)
 {
+    // printf("advSensningPressSetup\n\n");
     advSensingReset(channel);
     spiReadWriteReg(channel, 0x77E7 | SUP_RISE_SENSE_BIT_ON);  // set SENSE = 1
     spiReadWriteReg(channel, 0x5697);  // Set BC = SENSE
@@ -770,6 +798,7 @@ static void advSensingPressSetup(uint8_t channel)
 // Multiple entry function - entered every time the timer expires
 static void advSensingPress(uint8_t channel)
 {
+    // printf("advSensningPress\n\n");
     advSensingGetSensingVoltage(channel);
 
     // evaluate sensing mechanisms
@@ -804,6 +833,7 @@ static void advSensingPress(uint8_t channel)
 // Single entry function - executed once when called
 static void advSensingPressFeedback(uint8_t channel)
 {
+    // printf("advSensningPressFeedback\n\n");
 	if(advSensingPlayWaveformNonBlocking(channel, bos1901[channel].press_waveform, bos1901[channel].press_waveform_size))
 		advSensingNextState(channel); // to go next phase
     // advSensingNextState(channel);
@@ -813,7 +843,7 @@ static void advSensingPressFeedback(uint8_t channel)
 // Single entry function - executed once when called
 static void advSensingPressCreepStabilization(uint8_t channel)
 { 
-    printf("\n\n\n\n inside stabilize \n\n\n");
+    // printf("\n\n\n\n inside stabilize \n\n\n");
 	// first entry - play waveform
 	if(bos1901[channel].relaxTimeStartUs == 0)
 	{

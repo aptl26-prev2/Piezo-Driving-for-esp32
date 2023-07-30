@@ -72,16 +72,16 @@ uint16_t spiReadWriteReg(uint8_t chipSelect, uint16_t data)
 	esp_err_t ret;
 	switch(chipSelect) //Select which SPI device to use based on chip select parameter
 	{
-		case 2:
+		case 0:
 			spiHandle = spi0; //Use chip select 0 device handle
 			break;
-		case 3:
+		case 1:
 			spiHandle = spi1; //Use chip select 1 device handle
 			break;
-		case 0:
+		case 2:
 			spiHandle = spi2; //Use chip select 2 device handle
 			break;
-		case 1:
+		case 3:
 			spiHandle = spi3; //Use chip select 2 device handle
 			break;
 		default:
