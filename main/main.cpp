@@ -968,7 +968,7 @@ void bt_read_send(void) {
     if (i % 10 == 0) 
     {
       // printf("\n\n Heap free memory: %i", esp_get_free_heap_size());
-      // BTSerial.println("");d
+      BTSerial.println("");
     }
     // printf("press release: %lld\n\n", esp_timer_get_time() - timeBeforePress);
     // if (i % 100 == 0) 
