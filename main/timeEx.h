@@ -29,7 +29,7 @@
 #include <stdbool.h>
 // #include "stm32f4xx_hal.h" // insert your MCU resource file here.
 
-#include "../components/arduino/libraries/spi/src/SPI.h"
+// #include "../components/arduino/libraries/spi/src/SPI.h"
 
 #define MICROSECOND_IN_MILLISECOND(_us) (_us/1000)
 

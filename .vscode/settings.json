@@ -91,6 +91,7 @@
         "random": "cpp",
         "set": "cpp",
         "utility": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "stddef.h": "c"
     }
 }

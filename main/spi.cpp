@@ -24,9 +24,11 @@
 
 #include <stdint.h>
 #include "spi.h"
-#include "../components/arduino/tools/sdk/esp32c3/include/driver/include/driver/gpio.h"
-#include "../components/arduino/libraries/spi/src/SPI.h"
+// #include "../components/arduino/tools/sdk/esp32c3/include/driver/include/driver/gpio.h"
+// #include "../components/arduino/libraries/spi/src/SPI.h"
 #include "driver/spi_master.h"
+#include "driver/gpio.h"
+
 
 #define SPI_HOST    HSPI_HOST //Define the SPI host to be HSPI
 

@@ -26,7 +26,7 @@
 
 #include <stdbool.h>
 // #include "stm32f4xx_hal.h" // insert your MCU resource file here.
-#include "../components/arduino/libraries/spi/src/SPI.h"
+// #include "../components/arduino/libraries/spi/src/SPI.h"
 #include "main.h" // change for get your gpio code.
 
 // #define IO0_PORT (GPIOB)

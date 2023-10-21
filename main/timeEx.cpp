@@ -25,6 +25,8 @@
 #include "timeEx.h"
 #include "ledEx.h"
 #include "math.h"
+#include "rom/ets_sys.h"
+
 
 // Flag variable associated with interrupt timer2
 // Note: MCU timer assumed to be at 1MHz with period in us.

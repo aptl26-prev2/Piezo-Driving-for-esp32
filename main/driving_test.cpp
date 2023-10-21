@@ -43,6 +43,9 @@
 #include "ledEx.h"
 #include "timeEx.h"
 #include <math.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 
 // #define Button_Press
 
@@ -119,7 +122,7 @@ WaveformType waveform;
 #define RELEASE_DETECTION_VALUE1_HOLDTIME 	(RELEASE_DETECTION_VALUE1_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 //// slope : slope threshold detection
 #define RELEASE_DETECTION_SLOPE_ENABLED 	(true)
-#define RELEASE_DETECTION_SLOPE_THRESHOLD 	(1000) // uV/ms
+#define RELEASE_DETECTION_SLOPE_THRESHOLD 	(5000) // uV/ms
 #define RELEASE_DETECTION_SLOPE_HOLDTIME_US (100) // us
 #define RELEASE_DETECTION_SLOPE_HOLDTIME    (RELEASE_DETECTION_SLOPE_HOLDTIME_US * SENSING_SAMPLING_RATE / 1000000) // cycles
 #define RELEASE_DETECTION_SLOPE_MAX_WINDOW_US (DATA_HANDLER_SLOPE_MAX_WINDOW_US) // us, window time OK you know it's admit it's up on but I need to like in Nicholasville Bluetooth so first and now OK so it's also stuck on the release Cantore what if we did .1.1

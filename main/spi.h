@@ -30,7 +30,7 @@
 #include <stdbool.h>
 // #include "stm32f4xx_hal.h" // insert your MCU resource file here.
 #include "main.h"
-#include "../components/arduino/libraries/spi/src/SPI.h"
+// #include "../components/arduino/libraries/spi/src/SPI.h"
 
 
 /********************************************************
