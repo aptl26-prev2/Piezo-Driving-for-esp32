@@ -25,15 +25,21 @@
 
 
 #include <stdint.h>
+#include <algorithm>
 #include <stdio.h>
 #include <string>
 #include <vector>
 #include <iostream>
+#include <cstdint>
 
 #include "example.h"
 // #include 
 
+#include "driver/gpio.h"
 #include "driver/spi_master.h"
+#include <map>
+
+
 #include "spi.h"
 #include "ledEx.h"
 #include "gpioEx.h"
@@ -46,7 +52,11 @@
 #include "esp_err.h"
 #include "esp_timer.h"
 #include "math.h"
-#include "BluetoothSerial.h"
+#include "esp_bt.h"
+#include "esp_bt_main.h"
+#include "esp_bt_device.h"
+#include "esp_gap_bt_api.h"
+#include "esp_spp_api.h"
 #include "nvs_flash.h"
 #include "../components/rapidjson/include/rapidjson/document.h"
 // #include "../components/esp_timer/include/esp_timer.h"
@@ -80,16 +90,25 @@
 /* USER CODE BEGIN PV */
 
 // !ESP code
-BluetoothSerial BTSerial;
+// BluetoothSerial BTSerial;
+// Bluetooth setup with esp lib
+#define BT_DEVICE_NAME "HC-05"
+#define SPP_SERVER_NAME "SPP_SERVER"
+static const esp_spp_mode_t esp_spp_mode = ESP_SPP_MODE_CB;
+static const esp_spp_sec_t sec_mask = ESP_SPP_SEC_NONE;
+static const esp_spp_role_t role_slave = ESP_SPP_ROLE_SLAVE;
+static uint32_t handle = 0;
 
-SPIClass * hspi1 = NULL;
-SPIClass * hspi4 = NULL;
+
+// SPIClass * hspi1 = NULL;
+// SPIClass * hspi4 = NULL;
 
 // declare a pointer to a hw_timer_t structure
 // hw_timer_t * htim2;
 esp_timer_handle_t htim2;
 
 // hw_timer_t * timer = NULL;
+#define TAG "YOUR_MODULE_NAME"
 
 #define CS_PIN1 GPIO_NUM_4
 #define CS_PIN2 GPIO_NUM_16
@@ -337,10 +356,10 @@ static void MX_SPI1_Init(void)
   //Initialize the SPI devices
   gpio_set_level(CS_PIN1, 1); 
   gpio_set_level(CS_PIN2, 1); 
-  esp_err_t ret=spi_bus_initialize(HSPI_HOST, &buscfg1, HSPI_DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
+  esp_err_t ret=spi_bus_initialize(SPI2_HOST, &buscfg1, HSPI_DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
   assert(ret==ESP_OK); //Check if the initialization was successful
-  ret=spi_bus_add_device(HSPI_HOST, &devcfg0, &spi0); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
-  ret=spi_bus_add_device(HSPI_HOST, &devcfg1, &spi1); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  ret=spi_bus_add_device(SPI2_HOST, &devcfg0, &spi0); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  ret=spi_bus_add_device(SPI2_HOST, &devcfg1, &spi1); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
   assert(ret==ESP_OK); //Check if adding device was successful
 
   
@@ -390,7 +409,6 @@ static void MX_SPI4_Init(void)
   // hspi4->begin(VSPI_SCLK, VSPI_MISO, VSPI_MOSI, VSPI_SS);
 
 
-
 // //!New spi library
   //!New spi library
   static const int spiClk = 12*1000*1000;
@@ -422,10 +440,10 @@ static void MX_SPI4_Init(void)
   //Initialize the SPI devices
   gpio_set_level(CS_PIN3, 1); 
   gpio_set_level(CS_PIN4, 1); 
-  esp_err_t ret=spi_bus_initialize(VSPI_HOST, &buscfg2, VSPI_DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
+  esp_err_t ret=spi_bus_initialize(SPI3_HOST, &buscfg2, VSPI_DMA_CHAN); //Initialize the SPI bus with the given configuration and DMA channel
   assert(ret==ESP_OK); //Check if the initialization was successful
-  ret=spi_bus_add_device(VSPI_HOST, &devcfg2, &spi2); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
-  ret=spi_bus_add_device(VSPI_HOST, &devcfg3, &spi3); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  ret=spi_bus_add_device(SPI3_HOST, &devcfg2, &spi2); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
+  ret=spi_bus_add_device(SPI3_HOST, &devcfg3, &spi3); //Add a device to the SPI bus with the given configuration and get a handle for it (chip select 0)
   assert(ret==ESP_OK); //Check if adding device was successful
 
   
@@ -781,6 +799,12 @@ bool arrayIsAllZeros(uint8_t array[], int size) {
     return true;
 }
 
+std::string trim(const std::string &s) {
+    auto wsfront = std::find_if_not(s.begin(), s.end(), [](int c){ return std::isspace(c); });
+    auto wsback = std::find_if_not(s.rbegin(), s.rend(), [](int c){ return std::isspace(c); }).base();
+    return (wsback <= wsfront ? std::string() : std::string(wsfront, wsback));
+}
+
 // std::vector<rapidjson::Document> splitAndParseJsons(const std::string& str) {
 //     std::vector<rapidjson::Document> docs;
 //     std::size_t prev = 0, pos = 0;
@@ -846,7 +870,7 @@ void callFunctionBasedOnJson(const std::string& json) {
             first = false;
             check = false; 
             st = false;
-            BTSerial.println("vibrating");
+            // BTSerial.println("vibrating");
         }
 
         else if (functionName == "stopDriving" && d.HasMember("fingerToStop") && d["fingerToStop"].IsInt()) {
@@ -877,112 +901,115 @@ void callFunctionBasedOnJson(const std::string& json) {
     }
 }
 
+void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
+    switch (event) {
+    case ESP_SPP_INIT_EVT:
+        ESP_LOGI(TAG, "ESP_SPP_INIT_EVT");
+        break;
+        
+    case ESP_SPP_SRV_OPEN_EVT:
+        ESP_LOGI(TAG, "ESP_SPP_SRV_OPEN_EVT");
+        handle = param->srv_open.handle;
+        break;
+        
+    case ESP_SPP_DATA_IND_EVT:  // This event indicates that there's incoming data.
+        ESP_LOGI(TAG, "ESP_SPP_DATA_IND_EVT");
+        {
+            uint8_t* buffer = param->data_ind.data;  // Data buffer
+            int len = param->data_ind.len;  // Length of received data
 
- void bt_setup(void) {
-  BTSerial.begin("HC-05");
+            // find the '}' character to delimit the JSON message
+            int endIndex = -1;
+            for (int j = 0; j < len; j++) {
+                if (buffer[j] == '}') {
+                    endIndex = j;
+                    break;
+                }
+            }
+
+            if (endIndex != -1) {
+                buffer[endIndex + 1] = '\0';  // null-terminate the string
+                std::string data = std::string((char*)buffer);
+                data = trim(data);
+                printf("\n\nReceive: %s\n\n", data.c_str());
+                callFunctionBasedOnJson(data.c_str());
+            }
+        }
+        break;
+
+    // Add cases for other events as required...
+    
+    default:
+        ESP_LOGI(TAG, "Unhandled event %d", event);
+        break;
+    }
 }
+
+
+void bt_setup(void) {
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    esp_bt_controller_init(&bt_cfg);
+    esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT);
+    esp_bluedroid_init();
+    esp_bluedroid_enable();
+    
+    esp_bt_dev_set_device_name(BT_DEVICE_NAME);
+    esp_spp_register_callback(esp_spp_cb);
+    esp_spp_init(esp_spp_mode);
+    esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+    esp_spp_start_srv(sec_mask, role_slave, 0, SPP_SERVER_NAME);
+}
+
 
 void bt_read_send(void) {
-  printf("\n\ninside bt_read_send\n\n");
-  for (uint8_t i = 0; i < NB_CHANNELS; i++)
-  {
-    
-    advSensingInit(i);
-    
-  }
-  int i = 0;
-  check = true;
-  BTSerial.setTimeout(5);
-  while (true) {
-    if (i == 1) printf("inside while \n");
-    // printf("inside outer while; \n");
-    int64_t timeBeforeAvailable = esp_timer_get_time();
-    if (BTSerial.available()) {
-
-      int64_t timeBeforeUntil = esp_timer_get_time();
-
-      String data = BTSerial.readStringUntil('}');
-      
-      // printf("timeBeforeUntil: %lld\n\n", esp_timer_get_time() - timeBeforeUntil);
-
-      int64_t timeBeforeTrim = esp_timer_get_time();
-
-      data.trim();
-
-      // printf("timeBeforeTrim: %lld\n\n", esp_timer_get_time() - timeBeforeTrim);
-      // printf("\n\n\nData before: %s\n", data.c_str());
-    // // Include the delimiter character in the received string
-      // if (BTSerial.peek() == '}') {
-      //   data += BTSerial.read();
-      // }
-
-      int64_t timeBeforeIf = esp_timer_get_time();
-
-      if (data != "")
-      {
-        data += "}";
-        // printf("\n\n\nData after: %s\n", data.c_str());
-        // printf("\n\ninsideif\n\n");
-        printf("\n\nReciecve: %s\n\n", data.c_str());
-        callFunctionBasedOnJson(data.c_str());
-      }
-
-
-      // printf("timeBeforeIf: %lld\n\n", esp_timer_get_time() - timeBeforeIf);
-
-      
-      
+    printf("\n\ninside bt_read_send\n\n");
+    for (uint8_t i = 0; i < NB_CHANNELS; i++) {
+        advSensingInit(i);
     }
-    
-    else if (!st) { //st stands for stop
-      check = false;
+    int i = 0;
+    check = true;
+
+    while (true) {
+        if (i == 1) printf("inside while \n");
+        
+        // Since we removed the data reading from this function (as it's now in the callback),
+        // you can proceed with other tasks directly.
+
+        if (!st) { // Assuming "st" checks if we should stop or not
+            check = false;
+        }
+
+        while (!check && !first) {  // Assuming "first" checks if it's the initial loop or not
+            advSensingExecuteSensing(); // Execute sensing
+            vTaskDelay(1);  // Short delay
+        }
+
+        // Send updates based on button states:
+        if (press) {
+            char str[40];
+            sprintf(str, "{\"press\": true, \"fingerSensing\": %u}", fingerSensing);
+            esp_spp_write(handle, strlen(str), (uint8_t*)str);
+            press = false;  // Reset the press flag
+        }
+
+        if (release) {
+            char str[40];
+            sprintf(str, "{\"press\": false, \"fingerSensing\": %u}", fingerSensing);
+            esp_spp_write(handle, strlen(str), (uint8_t*)str);
+            release = false;  // Reset the release flag
+        }
+
+        // Send a newline periodically (every 10 iterations in this case):
+        if (i % 10 == 0) {
+            esp_spp_write(handle, 1, (uint8_t*)"\n");
+        }
+
+        i++;
+        vTaskDelay(1);  // Short delay
     }
-
-    // printf("BT available: %lld\n\n", esp_timer_get_time() - timeBeforeAvailable);
-
-    int64_t timeBeforeInner = esp_timer_get_time();
-    while (!check && !first) {
-      // printf("inside inner while; \n");
-      advSensingExecuteSensing();
-      vTaskDelay(1);
-    } 
-
-    // printf("Inner while: %lld\n\n", esp_timer_get_time() - timeBeforeInner);
-
-    int64_t timeBeforePress = esp_timer_get_time();
-
-    if (press) {
-      char str[40];
-      sprintf(str, "{\"press\": true, \"fingerSensing\": %u}", fingerSensing);
-      BTSerial.println(str);
-      press = false;
-    }
-
-    if (release) {
-      char str[40];
-      sprintf(str, "{\"press\": false, \"fingerSensing\": %u}", fingerSensing);
-      BTSerial.println(str);
-      release = false;
-    }
-
-    if (i % 10 == 0) 
-    {
-      // printf("\n\n Heap free memory: %i", esp_get_free_heap_size());
-      BTSerial.println("");
-    }
-    // printf("press release: %lld\n\n", esp_timer_get_time() - timeBeforePress);
-    // if (i % 100 == 0) 
-    // {
-    //   // printf("\n\n Heap free memory: %i", esp_get_free_heap_size());
-    //   if (BTSerial.isConnected()) {
-    //     printf("Bluetooth connected\n");
-    //   }
-    // }
-    i++;
-    vTaskDelay(1);
-  }
-
 }
+
+
 
 // add button press mode and possible button press during viberation;
 

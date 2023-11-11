@@ -47,8 +47,6 @@
 *				 FUNCTIONS DEFINTION
 ********************************************************/
 
-extern SPIClass * hspi1;
-extern SPIClass * hspi4;
 extern spi_device_handle_t spi0;
 extern spi_device_handle_t spi1;
 extern spi_device_handle_t spi2;

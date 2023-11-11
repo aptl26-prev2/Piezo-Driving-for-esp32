@@ -4,7 +4,7 @@
 
 #define SIG_SIZE_MAX             	(1024 * 4) // Maximum waveform table size
 
-
+#include <cstdint>
 
 typedef enum {
     SINE,

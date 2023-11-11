@@ -319,7 +319,7 @@ LINK_WITH_TRUSTED_STORAGE:BOOL=OFF
 MBEDTLS_FATAL_WARNINGS:BOOL=ON
 
 //No help, variable specified on the command line.
-PYTHON:UNINITIALIZED=/Users/aghyaddeeb/.espressif/python_env/idf4.4_py3.10_env/bin/python
+PYTHON:UNINITIALIZED=/Users/aghyaddeeb/.espressif/python_env/idf5.2_py3.10_env/bin/python
 
 //No help, variable specified on the command line.
 PYTHON_DEPS_CHECKED:UNINITIALIZED=1
@@ -524,7 +524,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=90
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP
@@ -574,7 +574,7 @@ C_COMPILER_SUPPORTS_WFORMAT_SIGNEDNESS:INTERNAL=1
 //Details about finding Git
 FIND_PACKAGE_MESSAGE_DETAILS_Git:INTERNAL=[/opt/homebrew/bin/git][v2.41.0()]
 //Details about finding Python3
-FIND_PACKAGE_MESSAGE_DETAILS_Python3:INTERNAL=[/Users/aghyaddeeb/.espressif/python_env/idf4.4_py3.10_env/bin/python][cfound components: Interpreter ][v3.10.0()]
+FIND_PACKAGE_MESSAGE_DETAILS_Python3:INTERNAL=[/Users/aghyaddeeb/.espressif/python_env/idf5.2_py3.10_env/bin/python][cfound components: Interpreter ][v3.10.0()]
 //ADVANCED property for variable: GIT_EXECUTABLE
 GIT_EXECUTABLE-ADVANCED:INTERNAL=1
 //Have include stddef.h
@@ -593,10 +593,10 @@ _GNUInstallDirs_LAST_CMAKE_INSTALL_PREFIX:INTERNAL=/usr/local
 _Python3_Compiler_REASON_FAILURE:INTERNAL=
 //Development reason failure
 _Python3_Development_REASON_FAILURE:INTERNAL=
-_Python3_EXECUTABLE:INTERNAL=/Users/aghyaddeeb/.espressif/python_env/idf4.4_py3.10_env/bin/python
+_Python3_EXECUTABLE:INTERNAL=/Users/aghyaddeeb/.espressif/python_env/idf5.2_py3.10_env/bin/python
 //Python3 Properties
-_Python3_INTERPRETER_PROPERTIES:INTERNAL=Python;3;10;0;32;64;;;abi3;/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10;/Users/aghyaddeeb/.espressif/python_env/idf4.4_py3.10_env/lib/python3.10;/Users/aghyaddeeb/.espressif/python_env/idf4.4_py3.10_env/lib/python3.10/site-packages;/Users/aghyaddeeb/.espressif/python_env/idf4.4_py3.10_env/lib/python3.10/site-packages
-_Python3_INTERPRETER_SIGNATURE:INTERNAL=17f4c78fe32ba527bcd5fc33dcf84920
+_Python3_INTERPRETER_PROPERTIES:INTERNAL=Python;3;10;0;32;64;;;abi3;/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10;/Users/aghyaddeeb/.espressif/python_env/idf5.2_py3.10_env/lib/python3.10;/Users/aghyaddeeb/.espressif/python_env/idf5.2_py3.10_env/lib/python3.10/site-packages;/Users/aghyaddeeb/.espressif/python_env/idf5.2_py3.10_env/lib/python3.10/site-packages
+_Python3_INTERPRETER_SIGNATURE:INTERNAL=84330601f6e667de0bd780d89b9c1820
 //NumPy reason failure
 _Python3_NumPy_REASON_FAILURE:INTERNAL=
 

@@ -34,6 +34,7 @@
 /Users/aghyaddeeb/esp/translation/build/esp-idf/wpa_supplicant/libwpa_supplicant.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/esp_coex/libesp_coex.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/esp_wifi/libesp_wifi.a
+/Users/aghyaddeeb/esp/translation/build/esp-idf/bt/libbt.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/unity/libunity.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/cmock/libcmock.a
 /Users/aghyaddeeb/esp/translation/build/esp-idf/console/libconsole.a
